@@ -9,7 +9,7 @@ Tribunal is inspired by Ray Dalio's 5-step process for getting what you want out
 1. **Set Clear Goals**: Define the overarching architectural and functional objectives of the task without ambiguity.
 2. **Identify Problems**: Surface constraints, potential breakage points, conflicting dependencies, and architectural risks early.
 3. **Diagnose Root Causes**: Analyze underlying codebase realities and system trade-offs rather than jumping straight to superficial fixes.
-4. **Design Plans**: Formulate a comprehensive, actionable specification (`.tribunal/adr/..._implementation_plan_rev<N>.md`) as an Architecture Decision Record tailored to overcome identified challenges.
+4. **Design Plans**: Formulate a comprehensive, actionable specification (`docs/adr/..._implementation_plan_rev<N>.md`) as an Architecture Decision Record tailored to overcome identified challenges.
 5. **Execute Tasks**: Push through the designed plan to completion with systematic verification once consensus is reached.
 
 ---
@@ -31,7 +31,7 @@ Tribunal separates planning and auditing across two distinct AI models to elimin
        |                       |                       |
        |                       | Writes/Updates        |
        |                       v                       |
-       | .tribunal/adr/*_implementation_plan_rev<N>.md |
+       | docs/adr/*_implementation_plan_rev<N>.md |
        |                       |                       |
 Re-plan with                   | Audits (read-only)    | Resume Session
 Feedback                       v                       | (Attempt 2..5)
@@ -62,9 +62,9 @@ Feedback                       v                       | (Attempt 2..5)
 - **Model A (Primary Agent)**:
   - Explores and contexts the target codebase.
   - Addresses prior blocking issues if review feedback exists.
-  - Drafts and iteratively refines plans in `.tribunal/adr/` as Architecture Decision Records.
+  - Drafts and iteratively refines plans in `docs/adr/` as Architecture Decision Records.
   - Manages the 1-based attempt counter and session resumption.
-  - Captures the JSON from stdout and manually saves it to `.tribunal/adr/` to preserve history.
+  - Captures the JSON from stdout and manually saves it to `docs/adr/` to preserve history.
   - Upon approval, generates a `consensus_summary.md` artifact summarizing the agreed-upon design/code.
 
 - **Model B (Codex CLI Peer Reviewer)**:
@@ -121,7 +121,9 @@ The Python script enforces exact JSON schemas and boundary rules, exiting with s
 
 ## Technical Debt & ADR Context
 
-The `.tribunal/tech_debt/` folder is a directory where the Agent or User can drop individual markdown files documenting known issues, preventing file-lock contention. Codex is hardcoded to read both the `adr/` and `tech_debt/` folders during every review to understand historical context and bypass known technical debt.
+The `docs/tech_debt/` folder is a directory where the Agent or User can drop individual markdown files documenting known issues, preventing file-lock contention. Codex is hardcoded to read both the `adr/` and `tech_debt/` folders during every review to understand historical context and bypass known technical debt.
+
+**Note**: Both the `docs/adr/` and `docs/tech_debt/` folders are part of version control and are maintained long-term to ensure a persistent history of architectural decisions and known issues.
 
 ---
 

@@ -65,7 +65,7 @@ def _main():
             prompt_text += "\nFocus on code-level issues, logic, and correctness."
         prompt_text += "\nUse severity P0 or P1 for functional/correctness defects (these block execution)."
         prompt_text += "\nUse severity P2 for advisory/style feedback only."
-        prompt_text += "\nContext: Before reviewing, please read the `.tribunal/adr/` directory for historical Architecture Decision Records, and the `.tribunal/tech_debt/` directory for accepted known issues and out-of-scope items. Do not raise P0/P1 issues for items explicitly documented as technical debt."
+        prompt_text += "\nContext: Before reviewing, please read the `docs/adr/` directory for historical Architecture Decision Records, and the `docs/tech_debt/` directory for accepted known issues and out-of-scope items. Do not raise P0/P1 issues for items explicitly documented as technical debt."
         if args.message:
             prompt_text += "\nMessage: " + args.message
 
@@ -103,6 +103,8 @@ def _main():
                     except ProcessLookupError: pass
                     process.communicate()
                 print("Fatal: codex launch timed out", file=sys.stderr)
+                with open(ferr_path, 'r') as err_f:
+                    print(err_f.read(), file=sys.stderr)
                 sys.exit(2)
             except BaseException as e:
                 try: os.killpg(process.pid, signal.SIGKILL)
@@ -112,6 +114,8 @@ def _main():
 
         if process.returncode != 0:
             print(f"Fatal: codex command failed with code {process.returncode}", file=sys.stderr)
+            with open(ferr_path, 'r') as err_f:
+                print(err_f.read(), file=sys.stderr)
             sys.exit(2)
 
         session_id = args.session_id
