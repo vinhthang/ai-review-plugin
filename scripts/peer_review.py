@@ -3,10 +3,9 @@ import os
 import sys
 import argparse
 import tempfile
-import fcntl
 import json
 import subprocess
-import shutil
+import signal
 
 SCHEMA = {
     "type": "object",
@@ -17,7 +16,7 @@ SCHEMA = {
                 "type": "object",
                 "properties": {
                     "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
-                    "description": {"type": "string"}
+                    "description": {"type": "string", "minLength": 1}
                 },
                 "required": ["severity", "description"],
                 "additionalProperties": False
@@ -29,178 +28,144 @@ SCHEMA = {
 }
 
 def main():
+    try:
+        _main()
+    except OSError as e:
+        print(f"Fatal: I/O error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+def _main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", required=True, help="Absolute path to target file")
     parser.add_argument("--mode", required=True, choices=["plan", "code"])
     parser.add_argument("--repo", required=True, help="Absolute path to repo")
-    parser.add_argument("--work-dir", help="Optional work dir for resuming")
     parser.add_argument("--message", help="Optional message")
+    parser.add_argument("--session-id", help="Optional session id to resume")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     args = parser.parse_args()
 
     target = os.path.realpath(args.target)
+    if not os.path.isfile(target):
+        print(f"Fatal: target is not a file: {target}", file=sys.stderr)
+        sys.exit(2)
     repo = os.path.realpath(args.repo)
-    
-    if args.work_dir:
-        work_dir = os.path.realpath(args.work_dir)
-        temp_dir = os.path.realpath(os.path.join(repo, ".tribunal"))
+    if not os.path.isdir(repo):
+        print(f"Fatal: repo is not a directory: {repo}", file=sys.stderr)
+        sys.exit(2)
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        review_file = os.path.join(work_dir, "review.json")
+        schema_path = os.path.join(work_dir, "schema.json")
+        with open(schema_path, 'w') as f:
+            json.dump(SCHEMA, f)
         
-        if not os.path.exists(work_dir):
-            print("Fatal: work_dir does not exist.", file=sys.stderr)
-            sys.exit(2)
+        prompt_text = f"Perform a {args.mode} review of this file: " + target
+        if args.mode == "plan":
+            prompt_text += "\nFocus on architectural design and planning criteria."
+        elif args.mode == "code":
+            prompt_text += "\nFocus on code-level issues, logic, and correctness."
+        prompt_text += "\nUse severity P0 or P1 for functional/correctness defects (these block execution)."
+        prompt_text += "\nUse severity P2 for advisory/style feedback only."
+        if args.message:
+            prompt_text += "\nMessage: " + args.message
 
-        if not work_dir.startswith(temp_dir + os.sep) or "tribunal_run_" not in os.path.basename(work_dir):
-            print("Fatal: Invalid work_dir path.", file=sys.stderr)
-            sys.exit(2)
-        if os.stat(work_dir).st_uid != os.getuid():
-            print("Fatal: Invalid work_dir ownership.", file=sys.stderr)
-            sys.exit(2)
-    else:
-        temp_dir = os.path.join(repo, ".tribunal")
-        os.makedirs(temp_dir, exist_ok=True)
-        work_dir = tempfile.mkdtemp(dir=temp_dir, prefix="tribunal_run_")
-        with open(os.path.join(work_dir, ".tribunal_marker"), "w") as f:
-            f.write("")
-    
-    print(work_dir)
-    sys.stdout.flush()
-
-    lock_file_path = os.path.join(work_dir, "state.lock")
-    with open(lock_file_path, 'a'): pass
-    
-    with open(lock_file_path, 'r+') as lock_f:
-        fcntl.flock(lock_f, fcntl.LOCK_EX)
-        try:
-            if not os.path.exists(work_dir):
-                print("Fatal: work_dir was deleted while waiting for lock.", file=sys.stderr)
-                sys.exit(2)
-
-            state_file = os.path.join(work_dir, "state.json")
+        fout_path = os.path.join(work_dir, "stdout.log")
+        ferr_path = os.path.join(work_dir, "stderr.log")
+        
+        if args.session_id:
+            cmd = [
+                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
+                "--json", "resume", args.session_id, 
+                "--output-schema", schema_path, "-o", review_file, prompt_text
+            ]
+        else:
+            cmd = [
+                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
+                "--json", "--output-schema", schema_path, "-o", review_file, prompt_text
+            ]
             
-            if os.path.exists(state_file):
-                with open(state_file, 'r') as f:
-                    try:
-                        state = json.load(f)
-                    except json.JSONDecodeError:
-                        print("Fatal: Corrupt state.json", file=sys.stderr)
-                        sys.exit(2)
-                
-                if args.mode != state.get("mode") or args.target != state.get("target") or args.repo != state.get("repo"):
-                    print("Fatal: Mismatched arguments.", file=sys.stderr)
-                    sys.exit(2)
-                
-                attempt = state.get("attempt", 1) + 1
-            else:
-                state = {
-                    "mode": args.mode,
-                    "target": args.target,
-                    "repo": args.repo,
-                    "attempt": 1
-                }
-                attempt = 1
-                
-            if attempt > 5:
-                print("Fatal: Max attempts exceeded.", file=sys.stderr)
-                sys.exit(2)
-
-            state["attempt"] = attempt
-            
-            review_file = os.path.join(work_dir, "review.json")
-            if os.path.exists(review_file):
-                os.remove(review_file)
-            
-            schema_path = os.path.join(work_dir, "schema.json")
-            with open(schema_path, 'w') as f:
-                json.dump(SCHEMA, f)
-            
-            fout = open(os.path.join(work_dir, "stdout.log"), 'a+')
-            ferr = open(os.path.join(work_dir, "stderr.log"), 'a+')
-            
-            prompt_text = "Review this file: " + args.target
-            if args.message:
-                prompt_text += "\nMessage: " + args.message
-                
-            prompt_file = os.path.join(work_dir, "prompt.txt")
-            with open(prompt_file, 'w') as f:
-                f.write(prompt_text)
-                
-            if attempt == 1:
-                cmd = ["codex", "exec", "-C", args.repo, "--sandbox", "read-only", "--json", "--output-schema", schema_path, "-o", review_file, prompt_file]
-                fout.seek(0)
-                fout.truncate()
-                ferr.seek(0)
-                ferr.truncate()
-            else:
-                session_id = state.get("session_id")
-                if not session_id:
-                    fout.seek(0)
-                    for line in fout:
-                        try:
-                            msg = json.loads(line)
-                            if msg.get("type") == "thread.started" and "thread_id" in msg:
-                                session_id = msg["thread_id"]
-                                state["session_id"] = session_id
-                                break
-                        except Exception:
-                            pass
-                if not session_id:
-                    print("Fatal: Could not find session_id from previous run", file=sys.stderr)
-                    sys.exit(2)
-                
-                cmd = ["codex", "exec", "resume", session_id, "--output-schema", schema_path, "-o", review_file, prompt_file]
-
-            with open(state_file, 'w') as f:
-                json.dump(state, f)
-
-            process = subprocess.run(cmd, stdout=fout, stderr=ferr, stdin=subprocess.DEVNULL)
-            fout.close()
-            ferr.close()
-            
-            if process.returncode != 0:
-                print(f"Fatal: codex command failed with code {process.returncode}", file=sys.stderr)
-                sys.exit(2)
-                
-            if not os.path.exists(review_file):
-                print("Fatal: review.json missing.", file=sys.stderr)
-                sys.exit(2)
-                
+        with open(fout_path, "w") as fout, open(ferr_path, "w") as ferr:
             try:
-                with open(review_file, 'r') as f:
-                    review = json.load(f)
-            except json.JSONDecodeError:
-                print("Fatal: review.json corrupt.", file=sys.stderr)
+                process = subprocess.Popen(cmd, stdout=fout, stderr=ferr, stdin=subprocess.DEVNULL, start_new_session=True)
+            except OSError as e:
+                print(f"Fatal: codex launch failed: {e}", file=sys.stderr)
                 sys.exit(2)
+            
+            try:
+                process.communicate(timeout=1800)
+            except subprocess.TimeoutExpired:
+                try: os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError: pass
                 
-            if "issues" not in review or not isinstance(review["issues"], list):
-                print("Fatal: Invalid review.json format, 'issues' missing or not a list.", file=sys.stderr)
+                try: process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    try: os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
+                    process.communicate()
+                print("Fatal: codex launch timed out", file=sys.stderr)
+                sys.exit(2)
+            except BaseException as e:
+                try: os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError: pass
+                process.communicate()
+                raise e
+
+        if process.returncode != 0:
+            print(f"Fatal: codex command failed with code {process.returncode}", file=sys.stderr)
+            sys.exit(2)
+
+        session_id = args.session_id
+        if not session_id:
+            with open(fout_path, 'r') as fr:
+                for line in fr:
+                    try:
+                        msg = json.loads(line)
+                        if msg.get("type") == "thread.started" and "thread_id" in msg:
+                            t_id = msg["thread_id"]
+                            if isinstance(t_id, str) and t_id:
+                                session_id = t_id
+                                break
+                    except Exception:
+                        pass
+            if not session_id:
+                print("Fatal: Could not find thread.started event in stdout.log.", file=sys.stderr)
                 sys.exit(2)
 
-            issues = review.get("issues", [])
-            blocking_issues = [i for i in issues if i.get("severity") in ["P0", "P1"]]
-            non_blocking_issues = [i for i in issues if i.get("severity") == "P2"]
+        if not os.path.exists(review_file):
+            print("Fatal: review.json missing.", file=sys.stderr)
+            sys.exit(2)
+            
+        try:
+            with open(review_file, 'r') as f:
+                review = json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+            print("Fatal: review.json corrupt.", file=sys.stderr)
+            sys.exit(2)
+            
+        if not isinstance(review, dict) or set(review.keys()) != {"issues"} or not isinstance(review["issues"], list):
+            print("Fatal: Invalid review.json format.", file=sys.stderr)
+            sys.exit(2)
+            
+        for item in review["issues"]:
+            if not isinstance(item, dict) or set(item.keys()) != {"severity", "description"}:
+                print("Fatal: Invalid review.json format, issue item properties.", file=sys.stderr)
+                sys.exit(2)
+            if "severity" not in item or item["severity"] not in ["P0", "P1", "P2"]:
+                print("Fatal: Invalid review.json format, missing or invalid severity.", file=sys.stderr)
+                sys.exit(2)
+            if "description" not in item or not isinstance(item["description"], str) or not item["description"].strip():
+                print("Fatal: Invalid review.json format, description.", file=sys.stderr)
+                sys.exit(2)
 
-            if not blocking_issues:
-                for issue in non_blocking_issues:
-                    print(issue.get("description"))
-                if not args.debug:
-                    if os.path.exists(os.path.join(work_dir, ".tribunal_marker")):
-                        try:
-                            shutil.rmtree(work_dir)
-                        except Exception:
-                            pass
-                sys.exit(0)
-            else:
-                for issue in blocking_issues:
-                    print(f"[{issue.get('severity')}] {issue.get('description')}", file=sys.stderr)
-                
-                if attempt == 5:
-                    print("Fatal: Max attempts reached, blocking issues remain.", file=sys.stderr)
-                    sys.exit(2)
-                    
-                sys.exit(1)
-
-        finally:
-            fcntl.flock(lock_f, fcntl.LOCK_UN)
+        review["session_id"] = session_id
+        
+        print(json.dumps(review))
+        
+        blocking_issues = [i for i in review["issues"] if i.get("severity") in ["P0", "P1"]]
+        if not blocking_issues:
+            sys.exit(0)
+        else:
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -69,32 +69,33 @@ Feedback                       v                       | (Attempt 2..5)
   - Runs in a strict `--sandbox read-only` environment, guaranteeing that auditing the codebase cannot cause accidental side-effects, file overwrites, or code mutations. (ALWAYS run with `--debug` to preserve the `review.json` history for every round).
   - Audits the implementation plan directly against workspace files in `$(pwd)`.
   - Evaluates architectural blast radius, edge cases, and contract compliance.
-  - Emits event logs (`codex_events.jsonl`) on stdout, errors on stderr (`codex_stderr.log`), and structured findings to `review.json` containing an `issues` list, where each issue has a `description` and a `severity` classification:
+  - Emits event logs on stdout, errors on stderr, and structured findings to `review.json` containing an `issues` list, where each issue has a `description` and a `severity` classification:
     - **P0 (Critical Blocking)**: Severe architectural flaws, security risks, or guaranteed regressions. Must be fixed before execution.
     - **P1 (Standard Blocking)**: Functional bugs, missing requirements, or significant edge cases. Must be fixed before execution.
     - **P2 (Non-Blocking Advice)**: Optimization suggestions, style improvements, or minor edge cases. Emitted as optional advice and does not block execution.
 
 ---
 
-## Session Resumption & Retry Lifecycle (Python State Machine)
+## Session Resumption & Retry Lifecycle (Orchestrator Paradigm)
 
-To enforce robustness, state tracking and execution boundaries, the core protocol is wrapped in a Python CLI (`scripts/tribunal_step.py`).
+To enforce robustness and execution boundaries, the core protocol is wrapped in a Python CLI (`scripts/peer_review.py`) combined with the Agent's cognitive loop (The Orchestrator Paradigm).
 
 ### 1. Read-Only Sandbox Security
 The peer reviewer runs under `--sandbox read-only`. Model B has full read access to inspect the codebase, dependencies, and artifacts, but is strictly disallowed from writing or mutating files. Output is isolated via `review.json` generation.
 
-### 2. Contextual Session Resumption
-The Python wrapper automates tracking the underlying LLM's conversation context.
+### 2. Contextual Session Resumption & Orchestrator Paradigm
+The Python script (`peer_review.py`) is completely stateless. It does not track attempt counters, create locks, or manage directory persistence across attempts.
+- **Agent as Orchestrator**: The AI Agent manages the attempt limits and session resumption in memory.
 - **Initial Attempt (`Attempt = 1`)**:
-  The script automatically parses the `thread.started` event from Codex's JSONL output and saves it.
+  The script automatically parses the `thread.started` event from Codex's JSONL output and returns the `session_id` in its JSON output to the Agent.
 - **Subsequent Attempts (`Attempt > 1`)**:
-  The script loads the session ID and executes with the `resume` command, allowing Model B to remember prior critique and verify fixes against previously raised issues.
+  The Agent passes `--session-id <SESSION_ID>` to the script, allowing Model B to remember prior critique and verify fixes against previously raised issues.
 
 ### 3. Strict Validation & Error Handling
 The Python script enforces exact JSON schemas and boundary rules, exiting with specific codes that inform the Primary Agent:
-- **Exit 0 (Approved)**: `review.json` is completely valid and contains no P0/P1 blocking issues. The agent proceeds, treating any P2 issues as optional advice.
-- **Exit 1 (Rejected)**: Validation passes, but P0/P1 blocking issues exist. The script outputs blocking issues directly to stderr. The agent increments its attempt and retries.
-- **Exit 2 (Fatal Error)**: Attempt count hits 5 (hard boundary), codex command fails, or the emitted JSON schema is invalid. Execution halts immediately and is escalated to the user.
+- **Exit 0 (Approved)**: Output is completely valid and contains no P0/P1 blocking issues. The agent proceeds, treating any P2 issues as optional advice.
+- **Exit 1 (Rejected)**: Validation passes, but P0/P1 blocking issues exist. The agent increments its attempt and retries.
+- **Exit 2 (Fatal Error)**: Codex command fails, or the emitted JSON schema is invalid. Execution halts immediately and is escalated to the user.
 
 ---
 
@@ -103,9 +104,9 @@ The Python script enforces exact JSON schemas and boundary rules, exiting with s
 | Scenario | Conditions | Expected State Machine Behavior |
 | :--- | :--- | :--- |
 | **1. First-Pass Approval** | `Attempt = 1`, no P0/P1 issues, exit code 0 | Loop terminates cleanly on Attempt 1. Consensus summary displayed; implementation proceeds automatically. |
-| **2. Multi-Turn Rejection & Resumption** | `Attempt = 1` rejected (has P0/P1); UUID extracted; `Attempt = 2` resumed (no P0/P1) | Attempt 1 logs blocking issues. Session `<SESSION_ID>` is stored. Attempt 2 resumes session. Plan is approved and executes automatically. |
-| **3. 5-Attempt Boundary Escalation** | `Attempt = 1..5` all return P0/P1 issues | Rejections handled for attempts 1–4. Upon Attempt 5 rejection (`Attempt >= 5`), loop HALTS immediately and prompts user for direction. No code implementation occurs. |
-| **4. Non-Zero CLI Exit / Failure** | Codex crashes or exits with non-zero status | Execution halts closed immediately. Diagnostics logged from `codex_stderr.log`; no implementation is performed. |
+| **2. Multi-Turn Rejection & Resumption** | `Attempt = 1` rejected (has P0/P1); UUID extracted; `Attempt = 2` resumed (no P0/P1) | Attempt 1 logs blocking issues. Session `<SESSION_ID>` is stored by the Agent. Attempt 2 resumes session. Plan is approved and executes automatically. |
+| **3. 5-Attempt Boundary Escalation** | `Attempt = 1..5` all return P0/P1 issues | Rejections handled for attempts 1–4. Upon Attempt 5 rejection (`Attempt >= 5`), the Agent HALTS immediately and prompts user for direction. No code implementation occurs. |
+| **4. Non-Zero CLI Exit / Failure** | Codex crashes or exits with non-zero status | Execution halts closed immediately. Diagnostics logged; no implementation is performed. |
 | **5. Malformed JSON / Missing Thread UUID** | `review.json` missing/corrupted or `thread.started` not found | Fail-closed validation triggers. Execution halts without reading stale output or executing code. |
 
 ---
