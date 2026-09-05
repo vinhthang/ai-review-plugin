@@ -41,7 +41,6 @@ def _main():
     parser.add_argument("--repo", required=True, help="Absolute path to repo")
     parser.add_argument("--message", help="Optional message")
     parser.add_argument("--session-id", help="Optional session id to resume")
-    parser.add_argument("--debug", action="store_true", help="Debug mode")
     args = parser.parse_args()
 
     target = os.path.realpath(args.target)

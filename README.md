@@ -42,7 +42,7 @@ Feedback                       v                       | (Attempt 2..5)
        |                       |
        |                       | Emits
        |                       v
-       |           review.json & JSONL events
+       |                 stdout (JSON)
        |                       |
        |        +--------------+--------------+
        |        |                             |
@@ -64,9 +64,11 @@ Feedback                       v                       | (Attempt 2..5)
   - Addresses prior blocking issues if review feedback exists.
   - Drafts and iteratively refines plans in `.tribunal/adr/` as Architecture Decision Records.
   - Manages the 1-based attempt counter and session resumption.
+  - Captures the JSON from stdout and manually saves it to `.tribunal/adr/` to preserve history.
+  - Upon approval, generates a `consensus_summary.md` artifact summarizing the agreed-upon design/code.
 
 - **Model B (Codex CLI Peer Reviewer)**:
-  - Runs in a strict `--sandbox read-only` environment, guaranteeing that auditing the codebase cannot cause accidental side-effects, file overwrites, or code mutations. (ALWAYS run with `--debug` to preserve the `review.json` history for every round).
+  - Runs in a strict `--sandbox read-only` environment, guaranteeing that auditing the codebase cannot cause accidental side-effects, file overwrites, or code mutations.
   - Audits the implementation plan directly against workspace files in `$(pwd)`.
   - Evaluates architectural blast radius, edge cases, and contract compliance.
   - Emits event logs on stdout, errors on stderr, and structured findings to `review.json` containing an `issues` list, where each issue has a `description` and a `severity` classification:
