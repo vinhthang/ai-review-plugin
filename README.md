@@ -78,6 +78,12 @@ Feedback                       v                       | (Attempt 2..5)
 
 ---
 
+## Peer-Review Negotiation
+
+The Agent does not blindly accept issues reported by Codex. It critically analyzes the feedback and negotiates using the `--message` argument to debate Codex if it believes an issue is out of scope, factually incorrect, or breaks the user's design. If a deadlock occurs after 3 attempts (i.e., Codex repeatedly refuses the Agent's rebuttal on a P0/P1 issue), the Agent relegates the P0/P1 issues to the `tech_debt/` folder to bypass the blockage. The Agent then defers the final decision to the User at the end of the task.
+
+---
+
 ## Session Resumption & Retry Lifecycle (Orchestrator Paradigm)
 
 To enforce robustness and execution boundaries, the core protocol is wrapped in a Python CLI (`scripts/peer_review.py`) combined with the Agent's cognitive loop (The Orchestrator Paradigm).
@@ -110,6 +116,12 @@ The Python script enforces exact JSON schemas and boundary rules, exiting with s
 | **3. 5-Attempt Boundary Escalation** | `Attempt = 1..5` all return P0/P1 issues | Rejections handled for attempts 1–4. Upon Attempt 5 rejection (`Attempt >= 5`), the Agent HALTS immediately and prompts user for direction. No code implementation occurs. |
 | **4. Non-Zero CLI Exit / Failure** | Codex crashes or exits with non-zero status | Execution halts closed immediately. Diagnostics logged; no implementation is performed. |
 | **5. Malformed JSON / Missing Thread UUID** | `review.json` missing/corrupted or `thread.started` not found | Fail-closed validation triggers. Execution halts without reading stale output or executing code. |
+
+---
+
+## Technical Debt & ADR Context
+
+The `.tribunal/tech_debt/` folder is a directory where the Agent or User can drop individual markdown files documenting known issues, preventing file-lock contention. Codex is hardcoded to read both the `adr/` and `tech_debt/` folders during every review to understand historical context and bypass known technical debt.
 
 ---
 

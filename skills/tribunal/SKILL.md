@@ -15,6 +15,11 @@ description: An on-demand skill that implements the Autonomous Multi-Model Plann
 
 ## Phase 3: Consensus Evaluation & Orchestration
 - **Orchestrator Paradigm**: You (the Agent) are the orchestrator. The python script is completely stateless. You must track your own attempt counter and stop at 5 attempts.
-- **Exit 1 (Rejected)**: The JSON output contains P0/P1 issues. Update the plan. Rerun Phase 2 adding `--session-id <SESSION_ID>`. You may pass `--message` to debate.
+- **Analyze First**: Do not blindly accept Codex's critique. Review all P0, P1, and P2 issues critically.
+- **Debate & Defend**: If an issue is out of scope, factually incorrect, or breaks the user's design, DO NOT change the plan. Instead, rerun the review using the `--message` argument to formulate a technical rebuttal and negotiate with Codex.
+- **The 3-Attempt Deadlock**: If you and Codex are deadlocked (e.g., Codex refuses your rebuttal 3 times on the same P0/P1 issue), write a markdown file explaining the dispute to `.tribunal/tech_debt/<issue_name>.md`. This forces Codex to bypass it.
+- **Reporting**: If you relegate a P0/P1 to technical debt, you MUST explicitly notify the User at the end of the task so they can make the final decision.
+- **P2 Issues**: P2 issues are non-blocking. If you disagree with a P2, simply ignore it.
+- **Exit 1 (Rejected)**: The JSON output contains P0/P1 issues. Fix the plan or formulate a rebuttal. Rerun Phase 2 adding `--session-id <SESSION_ID>` and optionally `--message`.
 - **Exit 0 (Approved)**: Read the JSON for P2 advice. Proceed to execute the plan. Upon exit code 0 (Approval), generate a `consensus_summary.md` artifact summarizing the agreed-upon design/code.
 - **Exit 2 (Fatal)**: Halt immediately.

@@ -65,6 +65,7 @@ def _main():
             prompt_text += "\nFocus on code-level issues, logic, and correctness."
         prompt_text += "\nUse severity P0 or P1 for functional/correctness defects (these block execution)."
         prompt_text += "\nUse severity P2 for advisory/style feedback only."
+        prompt_text += "\nContext: Before reviewing, please read the `.tribunal/adr/` directory for historical Architecture Decision Records, and the `.tribunal/tech_debt/` directory for accepted known issues and out-of-scope items. Do not raise P0/P1 issues for items explicitly documented as technical debt."
         if args.message:
             prompt_text += "\nMessage: " + args.message
 
