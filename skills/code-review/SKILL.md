@@ -5,14 +5,24 @@ description: An on-demand skill that performs a rigorous multi-model peer review
 # Code Review Protocol
 
 ## Phase 1: Preparation (Model A)
-- Stage your changes using `git add <files>`.
-- Generate a comprehensive diff saving to a unique absolute path:
+- Identify the explicit list of files you modified or created for this task.
+- Generate a comprehensive diff using a temporary index to preserve the user's working state:
   ```bash
   mkdir -p .tribunal
   REVIEW_TARGET=$(mktemp "$(pwd)/.tribunal/review_XXXXXX.diff")
-  if git rev-parse HEAD >/dev/null 2>&1; then git diff --cached HEAD > "$REVIEW_TARGET"; else git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi
+  export GIT_INDEX_FILE=$(mktemp)
+  # Replace <FILES> with the actual files you modified
+  git add <FILES>
+  if git rev-parse HEAD >/dev/null 2>&1; then 
+    git diff --cached HEAD > "$REVIEW_TARGET"
+  else 
+    git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"
+  fi
+  rm "$GIT_INDEX_FILE"
+  unset GIT_INDEX_FILE
+  
   if [ ! -s "$REVIEW_TARGET" ]; then
-    echo "Fatal: No staged changes to review."
+    echo "Fatal: No changes to review in the specified files."
     rm -f "$REVIEW_TARGET"
     exit 1
   fi
@@ -32,6 +42,6 @@ description: An on-demand skill that performs a rigorous multi-model peer review
 - **The 3-Attempt Deadlock**: If you and Codex are deadlocked (e.g., Codex refuses your rebuttal 3 times on the same P0/P1 issue), write a markdown file explaining the dispute to `docs/tech_debt/<issue_name>.md`. This forces Codex to bypass it.
 - **Reporting**: If you create a technical debt file in `docs/tech_debt/` to bypass a P0/P1 issue, you MUST STOP execution and request explicit User approval before proceeding. Do not automatically proceed to implementation.
 - **P2 Issues**: P2 issues are non-blocking. If you disagree with a P2, simply ignore it.
-- **Exit 1**: Fix code or formulate a rebuttal, STAGE the fixes with `git add <files>` (if any), REGENERATE the diff to the SAME `<REVIEW_TARGET_FROM_PHASE_1>`, retry passing `--session-id <SESSION_ID>` and optionally `--message`.
+- **Exit 1**: Fix code or formulate a rebuttal, REGENERATE the diff to the SAME `<REVIEW_TARGET_FROM_PHASE_1>` (using the same temporary index method with `GIT_INDEX_FILE`), retry passing `--session-id <SESSION_ID>` and optionally `--message`.
 - **Exit 0**: Proceed. Upon exit code 0 (Approval), delete `<REVIEW_TARGET_FROM_PHASE_1>` (unless retention is requested) and generate a `consensus_summary.md` artifact summarizing the agreed-upon design/code.
 - **Exit 2**: Halt. Delete `<REVIEW_TARGET_FROM_PHASE_1>` before halting.

@@ -58,6 +58,15 @@ def _main():
         target_copy = os.path.join(work_dir, "target.file")
         import shutil
         shutil.copy(target, target_copy)
+        
+        repo_copy = os.path.join(work_dir, "repo")
+        os.mkdir(repo_copy)
+        if subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+            p = subprocess.Popen(["git", "archive", "HEAD"], cwd=repo, stdout=subprocess.PIPE)
+            subprocess.run(["tar", "-x"], cwd=repo_copy, stdin=p.stdout, check=True)
+            p.stdout.close()
+            p.wait()
+            
         with open(schema_path, 'w') as f:
             json.dump(SCHEMA, f)
         
@@ -78,15 +87,15 @@ def _main():
         
         if args.session_id:
             cmd = [
-                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
-                "--ignore-rules", "--ignore-user-config",
+                "codex", "exec", "-C", repo_copy, "--sandbox", "read-only", 
+                "--ignore-rules", "--ignore-user-config", "--skip-git-repo-check",
                 "--json", "resume", args.session_id, 
                 "--output-schema", schema_path, "-o", review_file, prompt_text
             ]
         else:
             cmd = [
-                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
-                "--ignore-rules", "--ignore-user-config",
+                "codex", "exec", "-C", repo_copy, "--sandbox", "read-only", 
+                "--ignore-rules", "--ignore-user-config", "--skip-git-repo-check",
                 "--json", "--output-schema", schema_path, "-o", review_file, prompt_text
             ]
             
