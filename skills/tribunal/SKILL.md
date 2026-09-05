@@ -51,9 +51,9 @@ stateDiagram-v2
 - Increment your internal attempt counter.
 - Run the peer review script:
   - For Attempt 1:
-    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode plan --target "$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md" --repo "$(pwd)"`
+    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode plan --target "$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md" --repo .`
   - For Attempts 2+: Substitute `<SESSION_ID>` literally using the stored ID.
-    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode plan --target "$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md" --repo "$(pwd)" --session-id "<SESSION_ID>" [--message "<MESSAGE>"]`
+    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode plan --target "$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md" --repo . --session-id "<SESSION_ID>" [--message "<MESSAGE>"]`
 - Check for Exit 2 (Fatal) before attempting to parse the JSON output.
 - Parse the JSON output, extract and save the `session_id` for subsequent attempts.
 - Save the full JSON to `docs/adr/<timestamp>_review_rev<N>.json`.
