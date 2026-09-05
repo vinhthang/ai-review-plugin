@@ -9,7 +9,11 @@ stateDiagram-v2
     [*] --> INIT
     INIT --> PREPARE
     PREPARE --> ABORT : Preparation Failure
-    PREPARE --> REVIEW : Success
+    PREPARE --> REVIEW : attempt_counter == 0
+    PREPARE --> SELF_REVIEW : attempt_counter > 0
+    SELF_REVIEW --> REVIEW : Fix is adequate
+    SELF_REVIEW --> FIX : Fix is flawed (self_review_counter < 3)
+    SELF_REVIEW --> ESCALATE : Fix is flawed (self_review_counter >= 3)
     REVIEW --> EVALUATE
     REVIEW --> DONE : Exit 2 (Fatal)
     EVALUATE --> DONE : Exit 0 (Approval)
@@ -26,7 +30,7 @@ stateDiagram-v2
 
 ### State: INIT
 **Action:**
-- Initialize `attempt_counter = 0` and `session_id = null`.
+- Initialize `attempt_counter = 0`, `session_id = null`, and `self_review_counter = 0`.
 
 **Transitions:**
 - -> Transition to `PREPARE`
@@ -44,7 +48,20 @@ stateDiagram-v2
 
 **Transitions:**
 - On failure -> Transition to `ABORT`
-- On success -> Transition to `REVIEW`
+- On success and `attempt_counter == 0` -> Transition to `REVIEW`
+- On success and `attempt_counter > 0` -> Transition to `SELF_REVIEW`
+
+### State: SELF_REVIEW
+**Action:**
+- You are acting as a Pre-Reviewer.
+- Read the contents of the `<PLAN_FILE>` file. Evaluate if the plan revisions address prior findings without regressions.
+- Compare the changes against the P0/P1 issues that Codex raised in the previous iteration.
+- Increment the `self_review_counter`.
+
+**Transitions:**
+- If the fix is adequate -> Transition to `REVIEW` (to submit to Codex)
+- If the fix is flawed or incomplete and `self_review_counter < 3` -> Transition to `FIX` (to modify again)
+- If the fix is flawed or incomplete and `self_review_counter >= 3` -> Transition to `ESCALATE`
 
 ### State: REVIEW
 **Action:**
@@ -67,6 +84,7 @@ stateDiagram-v2
 - Analyze the JSON output. 
 - P2 issues are non-blocking advisory feedback.
 - Evaluate guards in priority order.
+- If the outcome is to fix, reset `self_review_counter = 0`.
 
 **Transitions:**
 - Priority 1: If Exit 0 (Approved) -> Transition to `DONE`
