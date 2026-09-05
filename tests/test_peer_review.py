@@ -26,7 +26,9 @@ def test_initial_state_and_success(mock_run, target_and_repo, capsys):
     def side_effect(cmd, **kwargs):
         if cmd[0] != "codex":
             mock_proc = MagicMock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
             mock_proc.communicate.return_value = (b"", b"")
             mock_proc.__enter__.return_value = mock_proc
             return mock_proc
@@ -72,7 +74,9 @@ def test_rejection(mock_run, target_and_repo):
     def side_effect(cmd, **kwargs):
         if cmd[0] != "codex":
             mock_proc = MagicMock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
             mock_proc.communicate.return_value = (b"", b"")
             mock_proc.__enter__.return_value = mock_proc
             return mock_proc
@@ -113,7 +117,9 @@ def test_missing_schema_or_review_json(mock_run, target_and_repo):
     def side_effect(cmd, **kwargs):
         if cmd[0] != "codex":
             mock_proc = MagicMock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
             mock_proc.communicate.return_value = (b"", b"")
             mock_proc.__enter__.return_value = mock_proc
             return mock_proc
@@ -150,7 +156,9 @@ def test_resume_session(mock_run, target_and_repo, capsys):
     def side_effect(cmd, **kwargs):
         if cmd[0] != "codex":
             mock_proc = MagicMock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
             mock_proc.communicate.return_value = (b"", b"")
             mock_proc.__enter__.return_value = mock_proc
             return mock_proc
@@ -195,7 +203,9 @@ def test_adversarial_prompt_injection_prevention(mock_run, target_and_repo):
     def side_effect(cmd, **kwargs):
         if cmd[0] != "codex":
             mock_proc = MagicMock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
             mock_proc.communicate.return_value = (b"", b"")
             mock_proc.__enter__.return_value = mock_proc
             return mock_proc

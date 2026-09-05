@@ -30,8 +30,8 @@ SCHEMA = {
 def main():
     try:
         _main()
-    except OSError as e:
-        print(f"Fatal: I/O error: {e}", file=sys.stderr)
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"Fatal: I/O or process error: {e}", file=sys.stderr)
         sys.exit(2)
 
 def _main():
@@ -61,11 +61,7 @@ def _main():
         
         repo_copy = os.path.join(work_dir, "repo")
         os.mkdir(repo_copy)
-        if subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
-            p = subprocess.Popen(["git", "archive", "HEAD"], cwd=repo, stdout=subprocess.PIPE)
-            subprocess.run(["tar", "-x"], cwd=repo_copy, stdin=p.stdout, check=True)
-            p.stdout.close()
-            p.wait()
+        subprocess.run(["rsync", "-a", "--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", f"{repo}/", f"{repo_copy}/"], check=True)
             
         with open(schema_path, 'w') as f:
             json.dump(SCHEMA, f)

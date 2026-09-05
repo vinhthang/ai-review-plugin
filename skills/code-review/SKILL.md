@@ -10,7 +10,8 @@ description: An on-demand skill that performs a rigorous multi-model peer review
   ```bash
   mkdir -p .tribunal
   REVIEW_TARGET=$(mktemp "$(pwd)/.tribunal/review_XXXXXX.diff")
-  export GIT_INDEX_FILE=$(mktemp)
+  export GIT_INDEX_FILE=$(mktemp -u)
+  git read-tree HEAD || true
   # Replace <FILES> with the actual files you modified
   git add <FILES>
   if git rev-parse HEAD >/dev/null 2>&1; then 
