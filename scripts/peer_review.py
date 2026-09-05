@@ -58,8 +58,6 @@ def _main():
         target_copy = os.path.join(work_dir, "target.file")
         import shutil
         shutil.copy(target, target_copy)
-        if os.path.exists(os.path.join(repo, "docs")):
-            shutil.copytree(os.path.join(repo, "docs"), os.path.join(work_dir, "docs"), dirs_exist_ok=True)
         with open(schema_path, 'w') as f:
             json.dump(SCHEMA, f)
         
@@ -80,15 +78,15 @@ def _main():
         
         if args.session_id:
             cmd = [
-                "codex", "exec", "-C", work_dir, "--sandbox", "read-only", 
-                "--ignore-rules", "--ignore-user-config", "--skip-git-repo-check",
+                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
+                "--ignore-rules", "--ignore-user-config",
                 "--json", "resume", args.session_id, 
                 "--output-schema", schema_path, "-o", review_file, prompt_text
             ]
         else:
             cmd = [
-                "codex", "exec", "-C", work_dir, "--sandbox", "read-only", 
-                "--ignore-rules", "--ignore-user-config", "--skip-git-repo-check",
+                "codex", "exec", "-C", repo, "--sandbox", "read-only", 
+                "--ignore-rules", "--ignore-user-config",
                 "--json", "--output-schema", schema_path, "-o", review_file, prompt_text
             ]
             
