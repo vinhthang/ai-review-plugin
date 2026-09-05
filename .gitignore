@@ -1,0 +1,6 @@
+.tribunal/
+__pycache__/
+.pytest_cache/
+codex_events.jsonl
+codex_stderr.log
+review.json
