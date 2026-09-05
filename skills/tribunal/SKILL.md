@@ -9,6 +9,7 @@ description: An on-demand skill that implements the Autonomous Multi-Model Plann
 - Read the codebase and write the technical specification to an absolute path: `$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md`.
 
 ## Phase 2: Peer Review Invocation (Model B)
+- Ensure the plugin is installed at `~/.gemini/config/plugins/ai-review-plugin/`.
 - Run: `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode plan --target "$(pwd)/docs/adr/YYYYMMDD_HHMM_implementation_plan_rev<N>.md" --repo "$(pwd)"`
 - Parse the JSON output printed to standard out. It will contain a `session_id` property.
 - When `peer_review.py` outputs the JSON, save it to `docs/adr/<timestamp>_review_rev<N>.json`.

@@ -14,6 +14,12 @@ Tribunal is inspired by Ray Dalio's 5-step process for getting what you want out
 
 ---
 
+## Installation
+
+This plugin **must** be installed into the exact directory path `~/.gemini/config/plugins/ai-review-plugin` for the internal paths to resolve correctly across workspaces.
+
+---
+
 ## Architecture & Multi-Model Workflow
 
 Tribunal separates planning and auditing across two distinct AI models to eliminate blind spots and self-confirmation bias:
