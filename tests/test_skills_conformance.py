@@ -6,6 +6,57 @@ import pytest
 
 PLUGIN_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+def test_spec_review_skill_conformance():
+    skill_path = os.path.join(PLUGIN_ROOT, "skills", "spec-review", "SKILL.md")
+    assert os.path.exists(skill_path), "skills/spec-review/SKILL.md must exist"
+
+    with open(skill_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Frontmatter
+    assert "name: spec-review" in content, "Must have name: spec-review in frontmatter"
+    assert "docs/superpowers/specs/" in content, "Description/content must target specs directory"
+
+    # Step 1: Goals - connects with superpowers:brainstorming
+    assert "superpowers:brainstorming" in content, "Must connect with superpowers:brainstorming"
+
+    # Step 2: Don't Tolerate Problems - eliminate docs/tech_debt
+    assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
+
+    # Step 3: Diagnose Root Causes - systematic-debugging
+    assert "superpowers:systematic-debugging" in content, "Must connect with superpowers:systematic-debugging"
+
+    # Step 4: Design Plans - writing-plans
+    assert "superpowers:writing-plans" in content, "Must connect with superpowers:writing-plans"
+
+    # Step 5: Push to Results - explicit approval gate
+    assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
+
+    # Mermaid diagram states
+    assert "INIT --> DISCOVER" in content
+    assert "DISCOVER --> PREPARE" in content
+    assert "PREPARE --> REVIEW" in content
+    assert "REVIEW --> EVALUATE" in content
+    assert "EVALUATE --> APPROVAL_GATE" in content
+    assert "APPROVAL_GATE --> DONE" in content
+
+    # Clean subagent protocols - no legacy Exit codes, proper payload schema
+    assert "review_status" in content, "Must use review_status payload property"
+    assert "Exit 0" not in content, "Must strip legacy Exit 0"
+    assert "Exit 1" not in content, "Must strip legacy Exit 1"
+    assert "Exit 2" not in content, "Must strip legacy Exit 2"
+
+    # Hardening: self_review_counter reset in ESCALATE and PREPARE
+    assert "self_review_counter = 0" in content, "Must reset self_review_counter to prevent deadlocks"
+    # Hardening: P2-Only Guard
+    assert "P2-Only Guard" in content, "Must include P2-Only Guard"
+    # Hardening: AGENTS.md citation
+    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
+    assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
+
+    # Review command
+    assert "--mode spec" in content, "Must use --mode spec in reviewer dispatch"
+
 def test_plan_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "plan-review", "SKILL.md")
     assert os.path.exists(skill_path), "skills/plan-review/SKILL.md must exist"
@@ -44,6 +95,18 @@ def test_plan_review_skill_conformance():
     # Plan-review hardening: rule citation update
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
+
+    # R3: SPEC_GATE conformance
+    assert "SPEC_GATE" in content, "Must contain SPEC_GATE state"
+    assert "DISCOVER --> SPEC_GATE" in content, "Must transition from DISCOVER to SPEC_GATE"
+    assert "SPEC_GATE --> PREPARE" in content, "Must transition from SPEC_GATE to PREPARE"
+    assert "**Spec:**" in content, "Must validate **Spec:** header"
+    assert "--no-spec" in content, "Must support --no-spec flag for standalone plans"
+
+    # R3: ISSUE-R3-01 escalation ceiling even if review_status is approved with P0/P1
+    assert "attempt_counter >= 5" in content
+    assert "debate_counter >= 3" in content
+    assert "ISSUE-R3-01" in content or "Escalation Ceiling" in content
 
 def test_code_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "code-review", "SKILL.md")
@@ -86,6 +149,17 @@ def test_code_review_skill_conformance():
     assert "Stage 3: Save Results" in content, "Must define Stage 3 Save Results"
     assert "Stage 4: Evaluate Results" in content, "Must define Stage 4 Evaluate Results"
     assert "manage_subagents" in content, "Must manage subagent lifecycle"
+
+    # R4 / ISSUE-R2-01: Signal trap for GIT_INDEX_FILE
+    assert "trap 'unset GIT_INDEX_FILE" in content, "Must protect GIT_INDEX_FILE cleanup with shell trap"
+
+    # R4 / ISSUE-R3-02: Attempt ceiling and ESCALATE transition
+    assert "attempt_counter >= 5" in content or "attempt_counter" in content
+    assert "ESCALATE" in content, "Must define ESCALATE transition for code review blockers"
+
+    # R4 / ISSUE-R3-03: Preservation of review.md even on empty diff
+    assert "review.md" in content
+    assert "No changes to review" in content
 
 def test_readme_conformance():
     readme_path = os.path.join(PLUGIN_ROOT, "README.md")

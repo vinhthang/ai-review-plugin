@@ -10,3 +10,5 @@ review.json
 # Plan-Review working files (transient, not committed)
 implementation_plan.md
 consensus_summary.md
+.agents/
+ORIGINAL_REQUEST.md

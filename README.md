@@ -1,6 +1,114 @@
-# Plan-Review: Autonomous Multi-Model Planning & Review Protocol
+# AI Review Plugin: Two-Stage Spec & Plan Review Architecture
 
-Plan-Review is an autonomous multi-model planning and review protocol designed to ensure architectural soundness, prevent regressions, and enforce rigorous verification before code implementation begins.
+The AI Review Plugin implements an autonomous multi-model planning and review protocol aligned with Ray Dalio's 5-Step Process and Superpowers Engineering Philosophy. It enforces a strict **Two-Stage Spec-Driven Development (SDD)** workflow to ensure architectural integrity, prevent regressions, and verify 100% bidirectional traceability before and during code implementation.
+
+---
+
+## Two-Stage Spec & Plan Review Architecture
+
+In complex software projects, conflating architectural design with task implementation plans causes architectural drift, unhandled edge cases, and scope creep. The Two-Stage Review Architecture decouples design from execution:
+
+```
++-----------------------------------------------------------------------------------+
+|                        SPEC-DRIVEN DEVELOPMENT WORKFLOW                           |
+|                                                                                   |
+|  +--------------------+        +---------------------+        +----------------+  |
+|  |   BRAINSTORMING    | -----> |     SPEC-REVIEW     | -----> |  PLAN-REVIEW   |  |
+|  |  (Set Clear Goals) |        | (Validate WHAT/WHY) |        | (Validate HOW) |  |
+|  +--------------------+        +---------------------+        +----------------+  |
+|                                           |                           |           |
+|                                           v                           v           |
+|                                      SPEC APPROVAL               PLAN APPROVAL    |
+|                                           |                           |           |
+|                                           +---------------------------+           |
+|                                                         |                         |
+|                                                         v                         |
+|                                                    SUBAGENT EXEC                  |
++-----------------------------------------------------------------------------------+
+```
+
+1. **Stage 1: Specification Tier (`spec-review`)**:
+   - Focus: **WHAT & WHY**. Problem definition, domain boundaries, system topology, interfaces, failure modes, security threat models, and architectural invariants.
+   - Prohibits: Granular checklists, task sequencing, file editing operations.
+   - Outcome: Approved specification document stored in `docs/superpowers/specs/`.
+2. **Stage 2: Implementation Plan Tier (`plan-review` with `SPEC_GATE`)**:
+   - Focus: **HOW & SEQUENCE**. Bite-sized (2–5 minute) implementation tasks formatted as checkboxes (`- [ ]`), explicit file paths, Consumes/Produces interfaces, exact test commands with expected outputs, and minimal diffs.
+   - Enforces: Mandatory `SPEC_GATE` verifying bidirectional traceability between the plan and the governing specification (100% spec coverage, zero unapproved scope).
+
+---
+
+## Skills
+
+### 1. `spec-review`
+An on-demand skill that performs a rigorous architectural peer review on design specifications in `docs/superpowers/specs/`.
+- **Discovery Hierarchy**: Explicit argument `$1` -> Git modified spec (`rtk git status --porcelain docs/superpowers/specs/`) -> newest file in `docs/superpowers/specs/` by `mtime`.
+- **Pre-flight Format Validation**: Validates title header, metadata (`Date`, `Status`, `Authors`), required sections (`Context & Motivation`, `Architecture & System Model`, `Component & Interface Contracts`, `Error Handling & Failure Modes`, `Verification & Testing`), absence of `- [ ]` checkboxes, and zero placeholders (`TODO`, `TBD`, `WIP`, ellipsis).
+- **Reviewer Invocation**: Dispatches `scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo .`.
+- **Ray Dalio's Don't Tolerate Problems**: P0 (critical architectural flaws) and P1 (functional omissions/unhandled failure modes) block execution. P2 issues are non-blocking advisory suggestions.
+- **Explicit Human Approval Gate**: Halts at `APPROVAL_GATE` per `rules/explicit-approval.md` before transitioning to implementation planning.
+
+### 2. `plan-review`
+An on-demand skill that validates implementation plans and enforces bidirectional alignment with specifications.
+- **`SPEC_GATE` Transition**:
+  - Reads plan header for `**Spec:** <path>`.
+  - Verifies the specification exists on disk.
+  - Rejects with diagnostic error if spec is missing or unlinked (unless explicit `--no-spec` override is passed for bounded fixes).
+- **Reviewer Invocation**: Dispatches `scripts/peer_review.py --mode plan --target <plan_path> --repo . --spec <resolved_spec_path>` (or `--no-spec`).
+- **Escalation Ceiling (ISSUE-R3-01 Fix)**: Enforces `attempt_counter >= 5` or `debate_counter >= 3` escalation to the human user even if a contradictory reviewer payload marks `review_status: "approved"` with P0/P1 issues.
+- **Explicit Human Approval Gate**: Halts at `APPROVAL_GATE` per `rules/explicit-approval.md` and `rules/reasoning-quality.md`. Once approved, delegates to `superpowers:subagent-driven-development`.
+
+### 3. `code-review`
+The companion code review skill performs a single-pass adversarial review on code changes:
+- **Two-Stage Delegation**: Flash subagent generates clean diff; Pro subagent conducts adversarial review (`attention-guard/rules/AGENTS.md`).
+- **Environment Safety (ISSUE-R2-01 Fix)**: Protects temporary `GIT_INDEX_FILE` cleanup with POSIX shell trap:
+  ```bash
+  trap 'unset GIT_INDEX_FILE; rm -f "$GIT_INDEX_FILE"' EXIT
+  ```
+- **Escalation Ceiling (ISSUE-R3-02 Fix)**: Tracks attempt count and transitions to `ESCALATE` if P0/P1 blockers remain unresolved after 5 attempts.
+- **Evidence Preservation (ISSUE-R3-03 Fix)**: Generates and permanently preserves `review.md` in repository root, even when diff is empty.
+
+---
+
+## Engine & CLI Contract (`scripts/peer_review.py`)
+
+The review engine provides deterministic, sandboxed execution using Codex CLI and strict JSON schema output.
+
+### CLI Parameters
+
+```bash
+scripts/peer_review.py --target <path> --mode <plan|code|spec> --repo <path> [--spec <path>] [--no-spec] [--message <msg>] [--session-id <id>]
+```
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `--target` | String | Yes | Path to file under review (`spec.md`, `plan.md`, or diff). |
+| `--mode` | Enum | Yes | Review mode: `spec`, `plan`, or `code`. |
+| `--repo` | String | Yes | Repository root directory to mirror for context. |
+| `--spec` | String | Conditional | Path to governing specification file. Required in `--mode plan` unless `--no-spec` is passed. Forbidden in `--mode spec` and `--mode code`. |
+| `--no-spec` | Flag | Conditional | Standalone plan review flag without governing specification. Mutually exclusive with `--spec`. Forbidden in `--mode spec` and `--mode code`. |
+| `--message` | String | Optional | Follow-up message, fix summary, or technical rebuttal. |
+| `--session-id` | String | Optional | Codex thread session ID to resume multi-turn debate. |
+
+### Validation Invariants & Exit Codes
+
+- **Exit Code 0**: Review completed cleanly with zero P0/P1 issues (approved or P2 advisory only).
+- **Exit Code 1**: Review completed with one or more P0 or P1 blocking issues.
+- **Exit Code 2**: Fatal error:
+  - `--spec` and `--no-spec` passed simultaneously (`Fatal: --spec and --no-spec are mutually exclusive.`).
+  - `--mode plan` missing both `--spec` and `--no-spec` (`Fatal: --mode plan requires either --spec <path> or --no-spec.`).
+  - `--spec` or `--no-spec` passed with `--mode spec` or `--mode code` (`Fatal: --spec cannot be used with --mode <mode>.`).
+  - `--spec <path>` points to non-existent file (`Fatal: spec file does not exist: <path>`).
+  - Target or repository path does not exist.
+  - Codex launch timeout, crash, or corrupted payload.
+
+### Process Safety Controls
+
+- **Graceful SIGKILL (ISSUE-R1-01 Fix)**: Verifies `process.poll() is None` before issuing `SIGKILL` after timeout grace period; never signals reaped processes.
+- **PermissionError Guard (ISSUE-R1-02 Fix)**: Catches `(ProcessLookupError, PermissionError)` on all `os.killpg` calls to guard against recycled foreign PIDs.
+- **Isolated Session Group (ISSUE-R1-03 Fix)**: Launches child processes with `start_new_session=True` so `os.killpg` targets an isolated session process group without leaking grandchildren.
+- **Rsync Fallback (ISSUE-R2-02 Fix)**: If `rsync` is missing or fails in minimal container environments, falls back gracefully to `shutil.copytree` excluding `.git`, `.gemini`, and `AGENTS.md`.
+
+---
 
 ## Conceptual Framework: Ray Dalio's 5-Step Process
 
@@ -17,147 +125,3 @@ Plan-Review embodies Ray Dalio's 5-step process for achieving operational excell
 ## Installation
 
 This plugin **must** be installed into the exact directory path `~/.gemini/config/plugins/ai-review-plugin` for internal paths and skills to resolve correctly across workspaces.
-
----
-
-## Architecture & Multi-Model Workflow
-
-Plan-Review separates planning and auditing across two distinct AI models to eliminate blind spots and self-confirmation bias:
-
-```
-                  +-------------------------------+
-                  |      User / Task Request      |
-                  +---------------+---------------+
-                                  |
-                                  v
-                  +-------------------------------+
-                  | Step 1: Brainstorming (Goals) |
-                  |   (superpowers:brainstorming) |
-                  +---------------+---------------+
-                                  |
-                                  v
-                  +-------------------------------+
-       +--------->|  Model A: Primary Agent       |<---------+
-       |          |  (Step 4: writing-plans)      |          |
-       |          +---------------+---------------+          |
-       |                          |                          |
-       |                          | Writes / Updates         |
-       |                          v                          |
-       |               implementation_plan.md                |
-       |                          |                          |
-       |                          | Spawns & Audits          | Rebuttal /
-       |                          v                          | Resumed Turn
-       |          +-------------------------------+          |
-       |          | Model B: Peer Reviewer Subagent|---------+
-       |          | (Model: pro / Opus)           |
-       |          +---------------+---------------+
-       |                          |
-       |                          | Emits Structured JSON
-       |                          v
-       |                    review.json
-       |                          |
-       |         +----------------+----------------+
-       |         |                                 |
-       |         v                                 v
-       |  (review_status: rejected)       (review_status: approved)
-       |         |                                 |
-       |  [Step 3: Systematic Debugging]           v
-       +--[Diagnose Root Cause & Fix]     +-------------------------------+
-                 |                        | Explicit Human Approval Gate  |
-           [Deadlock / Att >= 5]          |  (rules/explicit-approval.md) |
-                 |                        +---------------+---------------+
-                 v                                        |
-       +-------------------------------+                  v (User Approves)
-       | Step 2: Halt & Escalate       |  +-------------------------------+
-       | (Explicit Human Resolution)   |  | Step 5: Execute via Subagents |
-       +-------------------------------+  | (subagent-driven-development) |
-                                          +-------------------------------+
-```
-
-### Components
-
-- **Model A (Primary Agent)**:
-  - Conducts goal exploration via `superpowers:brainstorming`.
-  - Audits architectural blast radius and edge cases.
-  - Drafts and refines `implementation_plan.md` adhering to `superpowers:writing-plans`.
-  - Conducts Pre-Review self-checks before dispatching to the reviewer.
-  - Manages the peer review lifecycle and structured JSON communication.
-  - If rejected, diagnoses the structural root cause via `superpowers:systematic-debugging` before fixing.
-  - Upon approval, stops at the **Explicit Human Approval Gate** and awaits user confirmation before executing.
-
-- **Model B (Peer Reviewer Subagent)**:
-  - Spawns as an independent `Model: pro` (Opus) subagent.
-  - Audits the implementation plan directly against workspace files and specifications.
-  - Evaluates architectural blast radius, edge cases, contracts, and testability.
-  - Emits a structured JSON payload:
-    ```json
-    {
-      "status": "completed",
-      "review_status": "approved|rejected",
-      "summary": "Executive summary of review findings",
-      "issues": [
-        {
-          "severity": "P0|P1|P2",
-          "description": "Detailed description of the issue"
-        }
-      ]
-    }
-    ```
-    - **P0 (Critical Blocking)**: Severe architectural flaws, security risks, or breaking contracts. Execution halts.
-    - **P1 (Standard Blocking)**: Functional bugs, missing requirements, or significant edge cases. Execution halts.
-    - **P2 (Non-Blocking Advice)**: Optimization suggestions, style notes, or minor ergonomics. Does not block execution.
-
----
-
-## Don't Tolerate Problems (Zero Silent Bypasses)
-
-Plan-Review strictly adheres to Dalio's second principle: **Don't Tolerate Problems**.
-
-- **No Silent Bypasses**: P0 and P1 blocking issues are **never** relegated to technical debt backlogs or bypass folders.
-- **Explicit Escalation**: If the review deadlocks or reaches the attempt limit (5 attempts), execution immediately halts. The agent escalates the unresolved blocking issues directly to the human user for explicit determination.
-- **Preserved Evidence**: All review artifacts (`review.md`, `review.json`) are preserved as permanent verification evidence and never deleted on success.
-
----
-
-## Systematic Root Cause Diagnosis
-
-When a peer review rejects a plan, the Primary Agent does not apply superficial edits or engage in guess-and-check thrashing:
-- The agent activates `superpowers:systematic-debugging`.
-- Follows the Iron Law: **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST**.
-- Diagnoses the structural breakdown (interface mismatch, requirement omission, blast radius conflict).
-- Formulates a validated hypothesis and updates the plan text with structural precision.
-
----
-
-## Standardized Plan Design
-
-Implementation plans generated in `implementation_plan.md` adhere strictly to `superpowers:writing-plans`:
-- Standardized header specifying feature goal, architecture, tech stack, and execution sub-skills.
-- Bite-sized tasks (2–5 minutes per step).
-- Concrete file paths (`Create`, `Modify`, `Test`).
-- Explicit interfaces (`Consumes`, `Produces`).
-- Test commands and expected output assertions (TDD flow).
-- Complete code examples with **zero placeholders** (no "TODO", no "TBD").
-
----
-
-## Push to Results (Execution)
-
-1. **Human Approval Gate**: In accordance with `rules/explicit-approval.md` and `rules/reasoning-quality.md`, approval by peer review does **not** trigger automatic execution. The agent must present the approved plan to the human partner and await explicit confirmation ("Proceed", "Execute").
-2. **Subagent-Driven Execution**: Once the user approves, execution is handed off to `superpowers:subagent-driven-development` to dispatch fresh subagents task-by-task with fresh review checkpoints.
-
----
-
-## Code Review Skill
-
-The companion `code-review` skill performs a single-pass adversarial review on code changes before finalizing a task:
-- **Two-Stage Delegation**: Complying with Attention Guard rules (`attention-guard/rules/AGENTS.md`), terminal commands are never executed directly by the Primary Agent:
-  - **Stage 1 (Flash Subagent)**: Generates the clean diff using `rtk git` into `$REVIEW_TARGET`.
-  - **Stage 2 (Pro Subagent)**: Performs the adversarial review against the diff and plan context.
-- **Clean Git Diffing**: Uses clean conditional inspection with `rtk git` without error suppression:
-  ```bash
-  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
-  ```
-- **Liveness Tracking**: Spawns subagents with active `schedule` timers (`TimerCondition: any`).
-- **Unborn Repository Handling**: Falls back gracefully to Git's empty tree hash (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`) when operating on newly initialized repositories.
-- **Evidence Preservation**: `review.md` is preserved in the repository root as durable verification evidence rather than being discarded.

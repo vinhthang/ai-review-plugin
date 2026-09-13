@@ -4,22 +4,26 @@ description: An on-demand skill that implements the Autonomous Multi-Model Plann
 ---
 # Plan-Review Protocol
 
+The `plan-review` skill evaluates an implementation plan against its governing specification, task right-sizing, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
+
 ```mermaid
 stateDiagram-v2
     [*] --> INIT
-    INIT --> BRAINSTORM
-    BRAINSTORM --> AUDIT
-    AUDIT --> PREPARE
+    INIT --> DISCOVER
+    DISCOVER --> ABORT : Plan File Not Found / Ambiguous
+    DISCOVER --> SPEC_GATE : Plan File Resolved
+    SPEC_GATE --> ESCALATE : Spec Missing / Invalid / Not Found (without --no-spec)
+    SPEC_GATE --> PREPARE : Spec Linked and Valid (or --no-spec Validated)
     PREPARE --> ABORT : Preparation Failure
     PREPARE --> REVIEW : attempt_counter == 0
     PREPARE --> SELF_REVIEW : attempt_counter > 0
-    SELF_REVIEW --> REVIEW : Fix is adequate
-    SELF_REVIEW --> DIAGNOSE : Fix is flawed (self_review_counter < 3)
-    SELF_REVIEW --> ESCALATE : Fix is flawed (self_review_counter >= 3)
+    SELF_REVIEW --> REVIEW : Fix is Adequate
+    SELF_REVIEW --> DIAGNOSE : Fix is Flawed (self_review_counter < 3)
+    SELF_REVIEW --> ESCALATE : Fix is Flawed (self_review_counter >= 3)
     REVIEW --> EVALUATE : Subagent Completed
-    REVIEW --> ABORT : Subagent Failed
+    REVIEW --> ABORT : Subagent Failed / Launch Error
     EVALUATE --> APPROVAL_GATE : review_status == "approved" or (review_status == "rejected" and no P0/P1 issues)
-    EVALUATE --> ESCALATE : Attempts >= 5 or 3-Attempt Deadlock
+    EVALUATE --> ESCALATE : attempt_counter >= 5 or debate_counter >= 3
     EVALUATE --> DIAGNOSE : review_status == "rejected" (Agree with P0/P1)
     EVALUATE --> DEBATE : review_status == "rejected" (Disagree with P0/P1)
     EVALUATE --> ABORT : Malformed / Invalid JSON
@@ -29,6 +33,7 @@ stateDiagram-v2
     ESCALATE --> PREPARE : User Provides Resolution (Reset self_review_counter = 0)
     ESCALATE --> ABORT : User Rejects
     APPROVAL_GATE --> EXECUTE : User Explicitly Approves ("Proceed")
+    APPROVAL_GATE --> DIAGNOSE : User Requests Modifications
     APPROVAL_GATE --> ABORT : User Rejects
     EXECUTE --> DONE
     ABORT --> [*]
@@ -37,42 +42,47 @@ stateDiagram-v2
 
 ### State: INIT
 **Action:**
-- Initialize `attempt_counter = 0`, `conversation_id = null`, `self_review_counter = 0`, and `debate_counter = 0`.
+- Initialize in-memory loop state:
+  `attempt_counter = 0`
+  `debate_counter = 0`
+  `self_review_counter = 0`
+  `session_id = null`
+  `resolved_spec_path = null`
+- Transition to `DISCOVER`.
+
+### State: DISCOVER
+**Action:**
+- Connects with `superpowers:brainstorming` (Step 1: Set Clear Goals). Ensure architectural goals were clarified and specifications approved prior to planning.
+- Resolve plan target using Plan Resolution Hierarchy:
+  1. Priority 1 (Explicit Argument): `$1` if provided.
+  2. Priority 2 (Root Implementation Plan): `./implementation_plan.md` in repository root.
+  3. Priority 3 (Latest in Archive): Newest file in `docs/superpowers/plans/*.md`.
 
 **Transitions:**
-- -> Transition to `BRAINSTORM`
+- If plan file resolved -> Transition to `SPEC_GATE`
+- If plan file not found or ambiguous -> Transition to `ABORT`
 
-### State: BRAINSTORM (Step 1: Set Clear Goals)
+### State: SPEC_GATE (Critical SDD Alignment)
 **Action:**
-- Connect with `superpowers:brainstorming`.
-- Explore user intent, uncover constraints, evaluate architectural trade-offs, and clarify requirements before drafting any plan.
-- Ensure the problem domain and architectural objectives are rigorously understood before writing specifications.
+- Enforce the link between Implementation Plan and Specification:
+  1. Parse plan file header for the mandatory line: `**Spec:** <path>`.
+  2. If `**Spec:** <path>` is present:
+     - Resolve `<path>` relative to repository root or canonical path.
+     - Verify `<path>` exists on disk and is a valid file.
+     - If file does not exist: Emit diagnostic error: `SPEC_GATE FAILURE: Specified spec file does not exist: <path>`. Transition to `ESCALATE`.
+     - If file exists: Assign `resolved_spec_path = <path>` for reviewer injection. Transition to `PREPARE`.
+  3. If `**Spec:**` header is missing:
+     - Check if explicit `--no-spec` override was passed.
+     - If `--no-spec` NOT passed: Emit fatal gate error: `SPEC_GATE FAILURE: Plan does not reference a governing spec (**Spec:** header missing). Plans require an approved specification doc, or explicit --no-spec override for bounded fixes.`. Transition to `ESCALATE`.
+     - If `--no-spec` IS passed: Verify that the plan describes a small, bounded bugfix or maintenance task. If verified, proceed without spec context.
 
 **Transitions:**
-- -> Transition to `AUDIT`
+- Gate passed -> Transition to `PREPARE`
+- Gate rejected -> Transition to `ESCALATE`
 
-### State: AUDIT (Step 2: Identify Problems & Blast Radius)
+### State: PREPARE
 **Action:**
-- Self-activate the `superpowers` skill.
-- Autonomously evaluate the architectural blast radius, edge cases, data structures, and concurrency implications.
-- Identify potential breaking changes or integration friction across the workspace.
-
-**Transitions:**
-- -> Transition to `PREPARE`
-
-### State: ABORT
-**Action:**
-- Halt execution. Any partially written `implementation_plan.md` is retained for manual inspection.
-- Terminate any running peer reviewer subagents using `manage_subagents`.
-- Release resources and notify the caller.
-
-**Transitions:**
-- -> [Terminal State]
-
-### State: PREPARE (Step 4: Design Plans)
-**Action:**
-- Write the technical specification to `implementation_plan.md` in the project root directory.
-- Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter` is reset to `0` to prevent post-escalation deadlocks.
+- Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter = 0` is reset to prevent post-escalation deadlocks.
 - **Strict Format Standardization**: Adhere strictly to the format defined in `superpowers:writing-plans`:
   - Standard plan header:
     ```markdown
@@ -83,6 +93,7 @@ stateDiagram-v2
     **Goal:** [One sentence describing what this builds]
     **Architecture:** [2-3 sentences about approach]
     **Tech Stack:** [Key technologies/libraries]
+    **Spec:** [Path to approved spec file, or none (bounded fix)]
     ```
   - Task right-sizing: 2–5 minute bite-sized tasks (`- [ ] Step 1: ...`, etc.).
   - Exact file paths (`Create: exact/path`, `Modify: exact/path:line`, `Test: exact/path`).
@@ -110,7 +121,8 @@ stateDiagram-v2
 ### State: REVIEW
 **Action:**
 - Increment your internal `attempt_counter`.
-- For Attempt 1: Use `invoke_subagent` with `Model: pro` (Opus) to spawn a Peer Reviewer subagent. Pass `implementation_plan.md` and instructions to evaluate it against the `superpowers` rule and return a structured JSON subagent payload:
+- Turn 1: Dispatch Peer Reviewer subagent using `scripts/peer_review.py --mode plan --target <plan_path> --repo <repo_path>` along with `--spec <resolved_spec_path>` (if spec exists) or `--no-spec`.
+- Pass instructions to evaluate the plan against the `superpowers` rule and return a structured JSON subagent payload:
   ```json
   {
     "status": "completed",
@@ -124,8 +136,8 @@ stateDiagram-v2
     ]
   }
   ```
-- For Attempts 2+: Use `send_message` to communicate revisions or rebuttals to the existing Peer Reviewer subagent (using its `conversation_id`).
-- Set a liveness timer via `schedule` with `TimerCondition: any` per `attention-guard/rules/AGENTS.md`.
+- Turns 2+: Use `send_message` or `--session-id <session_id>` with `--message <rebuttal_or_fix_summary>` to communicate revisions or rebuttals to the Peer Reviewer subagent.
+- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g. `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
 - Save the subagent's `conversation_id` for subsequent turns.
 - Save the full JSON response to `review.json` in the project root directory.
 
@@ -146,8 +158,7 @@ stateDiagram-v2
 **Transitions:**
 - Priority 1: If `review_status == "approved"` and no P0/P1 issues exist -> Transition to `APPROVAL_GATE`
 - Priority 1 (P2-Only Guard): If `review_status == "rejected"` but no P0/P1 issues exist -> Treat as advisory and Transition to `APPROVAL_GATE`
-- Priority 2: If `review_status == "rejected"` and `attempt_counter >= 5` -> Transition to `ESCALATE`
-- Priority 2: If `review_status == "rejected"` and `debate_counter >= 3` on the same issue -> Transition to `ESCALATE`
+- Priority 2 (Escalation Ceiling - Fix for ISSUE-R3-01): If `attempt_counter >= 5` or `debate_counter >= 3` on any blocking issue -> Transition to `ESCALATE` (even if contradictory `review_status: "approved"` payload contains P0/P1 issues)
 - Priority 3: If (`review_status == "rejected"` or P0/P1 issues exist) and you agree with the P0/P1 issues -> Transition to `DIAGNOSE`
 - Priority 3: If (`review_status == "rejected"` or P0/P1 issues exist) and you disagree (e.g. out of scope, incorrect, violates requirements) -> Transition to `DEBATE`
 - Fail-closed: If `review.json` is missing, malformed, or invalid -> Transition to `ABORT`
@@ -181,7 +192,7 @@ stateDiagram-v2
 
 ### State: ESCALATE (Don't Tolerate Problems - Explicit Human Escalation)
 **Action:**
-- The review is deadlocked or has reached the 5-attempt limit.
+- The review is deadlocked, spec linkage failed, or has reached the 5-attempt limit (`attempt_counter >= 5` or `debate_counter >= 3`).
 - **Never bypass blockers**: Do NOT relegate P0/P1 blockers to technical debt backlogs or any bypass mechanism.
 - P0 blockers represent critical architectural defects that MUST halt execution and require explicit human resolution.
 - STOP execution and present the exact dispute and trade-offs to the human user for decision.
@@ -201,7 +212,7 @@ stateDiagram-v2
 
 **Transitions:**
 - If User Approves -> Transition to `EXECUTE`
-- If User Rejects or requests changes -> Transition to `ABORT` (or `BRAINSTORM`/`PREPARE`)
+- If User Rejects or requests changes -> Transition to `ABORT` (or `DIAGNOSE`)
 
 ### State: EXECUTE (Step 5: Push to Results via Subagents)
 **Action:**
@@ -219,4 +230,11 @@ stateDiagram-v2
 - Compile final Architecture Decision Record in `docs/adr/` if applicable.
 
 **Transitions:**
-- -> [Terminal State]
+- -> Terminal State `[*]`.
+
+### State: ABORT
+**Action:**
+- Terminate review workflow. Clean up temporary resources and report diagnostic cause to user.
+
+**Transitions:**
+- -> Terminal State `[*]`.
