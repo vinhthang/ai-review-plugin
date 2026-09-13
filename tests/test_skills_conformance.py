@@ -82,6 +82,11 @@ def test_code_review_skill_conformance():
     assert "TimerCondition: any" in content, "Must use schedule with TimerCondition: any"
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
 
+    # Stage structure and subagent lifecycle management
+    assert "Stage 3: Save Results" in content, "Must define Stage 3 Save Results"
+    assert "Stage 4: Evaluate Results" in content, "Must define Stage 4 Evaluate Results"
+    assert "manage_subagents" in content, "Must manage subagent lifecycle"
+
 def test_readme_conformance():
     readme_path = os.path.join(PLUGIN_ROOT, "README.md")
     assert os.path.exists(readme_path), "README.md must exist"
@@ -122,15 +127,14 @@ def test_peer_review_conformance():
     assert "json.JSONDecodeError" in source, "Must explicitly catch json.JSONDecodeError"
     assert "sys.stderr" in source, "Must log errors to sys.stderr"
 
-    # Check AST to ensure no blanket pass handlers exist
+    # Check AST to ensure NO pass statements exist in any except handler per rules/no-error-suppression.md
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.ExceptHandler):
-            if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
-                if node.type is None:
-                    pytest.fail("Bare except: pass is forbidden")
-                if isinstance(node.type, ast.Name) and node.type.id in ("BaseException", "Exception"):
-                    pytest.fail(f"Swallowing {node.type.id} with pass is forbidden")
+            for stmt in node.body:
+                if isinstance(stmt, ast.Pass):
+                    handler_name = ast.unparse(node.type) if node.type else "bare except"
+                    pytest.fail(f"Pass statement in except block for '{handler_name}' is forbidden per rules/no-error-suppression.md")
 
     # Check that every open() call in peer_review.py specifies encoding="utf-8"
     open_calls = [

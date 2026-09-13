@@ -151,9 +151,13 @@ Implementation plans generated in `implementation_plan.md` adhere strictly to `s
 ## Code Review Skill
 
 The companion `code-review` skill performs a single-pass adversarial review on code changes before finalizing a task:
-- **Clean Git Diffing**: Uses clean conditional inspection without error suppression:
+- **Two-Stage Delegation**: Complying with Attention Guard rules (`attention-guard/rules/AGENTS.md`), terminal commands are never executed directly by the Primary Agent:
+  - **Stage 1 (Flash Subagent)**: Generates the clean diff using `rtk git` into `$REVIEW_TARGET`.
+  - **Stage 2 (Pro Subagent)**: Performs the adversarial review against the diff and plan context.
+- **Clean Git Diffing**: Uses clean conditional inspection with `rtk git` without error suppression:
   ```bash
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then git read-tree HEAD; fi
+  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
   ```
+- **Liveness Tracking**: Spawns subagents with active `schedule` timers (`TimerCondition: any`).
 - **Unborn Repository Handling**: Falls back gracefully to Git's empty tree hash (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`) when operating on newly initialized repositories.
 - **Evidence Preservation**: `review.md` is preserved in the repository root as durable verification evidence rather than being discarded.

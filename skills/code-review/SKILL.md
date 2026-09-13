@@ -34,6 +34,7 @@ This skill performs a single-pass adversarial code review using an explicit two-
   }
   ```
 - If no changes were detected, the subagent returns `{"status": "completed", "summary": "No changes to review", "review_target": null}` and review terminates early.
+- The Primary Agent uses `manage_subagents` to terminate the diff generation subagent.
 
 ### Stage 2: Adversarial Peer Review (Pro Subagent)
 - Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
@@ -54,19 +55,20 @@ This skill performs a single-pass adversarial code review using an explicit two-
   }
   ```
 
-### 3. Save Results
+### Stage 3: Save Results
 - Write the reviewer's findings to `review.md` in the project root directory.
 - Format with sections: Executive Summary, P0 Issues (Critical), P1 Issues (Blocking), P2 Issues (Advisory).
 - Delete the temporary `$REVIEW_TARGET` diff file.
 - Use `manage_subagents` to kill the Peer Reviewer subagent.
 
-### 4. Evaluate Results
+### Stage 4: Evaluate Results
 - **Preserve Verification Evidence**: Never delete `review.md`. It serves as the authoritative verification artifact proving the code was scrutinized.
-- If P0/P1 issues were found (`review_status == "rejected"`):
+- If P0/P1 issues were found (`review_status == "rejected"` with blocking defects):
   - Retain `review.md` in the project root.
   - Do NOT tolerate problems or sweep them under the rug. P0/P1 blockers must be diagnosed and fixed before completion.
   - Reconcile findings against `implementation_plan.md` using `superpowers:systematic-debugging` to identify root causes prior to making any code corrections.
   - After diagnosing root causes and implementing fixes, re-run this code review protocol to verify all P0/P1 blockers are resolved and `review_status == "approved"`.
-- If no P0/P1 issues were found (`review_status == "approved"`):
+- If no P0/P1 issues were found (`review_status == "approved"` or P2 advisory issues only):
+  - Treat P2 advisory issues as non-blocking suggestions.
   - Retain `review.md` in the project root as verification evidence.
   - The Primary Agent compiles the final Architecture Decision Record to `docs/adr/YYYYMMDD_HHMM_<description>.md` referencing `implementation_plan.md`, `review.md`, and the verified code changes.

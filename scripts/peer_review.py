@@ -105,14 +105,20 @@ def _main():
             try:
                 process.communicate(timeout=1800)
             except subprocess.TimeoutExpired:
-                try: os.killpg(process.pid, signal.SIGTERM)
-                except ProcessLookupError: pass
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError as err:
+                    print(f"Debug: process already exited during SIGTERM: {err}", file=sys.stderr)
                 
-                try: process.communicate(timeout=5)
-                except subprocess.TimeoutExpired: pass
+                try:
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired as err:
+                    print(f"Debug: process did not exit within 5s grace period: {err}", file=sys.stderr)
                 
-                try: os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError: pass
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError as err:
+                    print(f"Debug: process already exited during SIGKILL: {err}", file=sys.stderr)
                 
                 try:
                     process.communicate()
@@ -124,8 +130,10 @@ def _main():
                     print(err_f.read(), file=sys.stderr)
                 sys.exit(2)
             except BaseException as e:
-                try: os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError: pass
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError as err:
+                    print(f"Debug: process already exited during cleanup SIGKILL: {err}", file=sys.stderr)
                 try:
                     process.communicate()
                 except (OSError, ValueError, subprocess.SubprocessError) as comm_err:
@@ -142,8 +150,11 @@ def _main():
         if not session_id:
             with open(fout_path, 'r', encoding="utf-8") as fr:
                 for line in fr:
+                    cleaned_line = line.strip()
+                    if not cleaned_line:
+                        continue
                     try:
-                        msg = json.loads(line)
+                        msg = json.loads(cleaned_line)
                         if isinstance(msg, dict) and msg.get("type") == "thread.started" and "thread_id" in msg:
                             t_id = msg["thread_id"]
                             if isinstance(t_id, str) and t_id:
