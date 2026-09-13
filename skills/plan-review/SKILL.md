@@ -22,6 +22,7 @@ stateDiagram-v2
     EVALUATE --> ESCALATE : Attempts >= 5 or 3-Attempt Deadlock
     EVALUATE --> DIAGNOSE : review_status == "rejected" (Agree with P0/P1)
     EVALUATE --> DEBATE : review_status == "rejected" (Disagree with P0/P1)
+    EVALUATE --> ABORT : Malformed / Invalid JSON
     DIAGNOSE --> FIX
     FIX --> SELF_REVIEW
     DEBATE --> REVIEW
@@ -61,7 +62,8 @@ stateDiagram-v2
 
 ### State: ABORT
 **Action:**
-- Halt execution. Any partially written `<PLAN_FILE>` is retained for manual inspection.
+- Halt execution. Any partially written `implementation_plan.md` is retained for manual inspection.
+- Terminate any running peer reviewer subagents using `manage_subagents`.
 - Release resources and notify the caller.
 
 **Transitions:**
@@ -140,11 +142,12 @@ stateDiagram-v2
 - If the outcome is to fix, reset `self_review_counter = 0` and `debate_counter = 0`.
 
 **Transitions:**
-- Priority 1: If `review_status == "approved"` (no P0/P1 issues) -> Transition to `APPROVAL_GATE`
+- Priority 1: If `review_status == "approved"` and no P0/P1 issues exist -> Transition to `APPROVAL_GATE`
 - Priority 2: If `review_status == "rejected"` and `attempt_counter >= 5` -> Transition to `ESCALATE`
 - Priority 2: If `review_status == "rejected"` and `debate_counter >= 3` on the same issue -> Transition to `ESCALATE`
-- Priority 3: If `review_status == "rejected"` and you agree with the P0/P1 issues -> Transition to `DIAGNOSE`
-- Priority 3: If `review_status == "rejected"` and you disagree (e.g. out of scope, incorrect, violates requirements) -> Transition to `DEBATE`
+- Priority 3: If (`review_status == "rejected"` or P0/P1 issues exist) and you agree with the P0/P1 issues -> Transition to `DIAGNOSE`
+- Priority 3: If (`review_status == "rejected"` or P0/P1 issues exist) and you disagree (e.g. out of scope, incorrect, violates requirements) -> Transition to `DEBATE`
+- Fail-closed: If `review.json` is missing, malformed, or invalid -> Transition to `ABORT`
 
 ### State: DIAGNOSE (Step 3: Diagnose Root Causes)
 **Action:**

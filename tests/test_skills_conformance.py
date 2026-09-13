@@ -26,13 +26,15 @@ def test_plan_review_skill_conformance():
 
     # Step 5: Push to Results - explicit approval gate and subagent-driven-development
     assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
+    assert "rules/reasoning-quality.md" in content, "Must reference rules/reasoning-quality.md"
     assert "superpowers:subagent-driven-development" in content, "Must delegate execution to subagent-driven-development"
 
-    # Subagent Protocol Cleanup - structured JSON, no legacy Exit codes
+    # Subagent Protocol Cleanup - structured JSON, no legacy Exit codes, no stale placeholders
     assert 'review_status' in content, "Must use review_status payload property"
     assert "Exit 0" not in content, "Must strip legacy Exit 0"
     assert "Exit 1" not in content, "Must strip legacy Exit 1"
     assert "Exit 2" not in content, "Must strip legacy Exit 2"
+    assert "<PLAN_FILE>" not in content, "Must eliminate lingering <PLAN_FILE> placeholder"
 
 def test_code_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "code-review", "SKILL.md")
@@ -45,9 +47,14 @@ def test_code_review_skill_conformance():
     assert "git read-tree HEAD || true" not in content, "Must not use || true"
     assert "git rev-parse --verify HEAD" in content, "Must use conditional git rev-parse check"
 
-    # Must preserve review.md on success
+    # Must preserve review.md on success and eliminate docs/tech_debt
     assert "Delete `review.md`" not in content, "Must never delete review.md on success"
     assert "review.md" in content
+    assert "docs/tech_debt" not in content, "Code review must not use docs/tech_debt"
+    assert "superpowers:systematic-debugging" in content, "Code review must use systematic debugging"
+
+    # Must not use trailing extension in mktemp template on BSD/macOS
+    assert "review_XXXXXX.diff" not in content, "Must not use trailing .diff in mktemp placeholder"
 
 def test_readme_conformance():
     readme_path = os.path.join(PLUGIN_ROOT, "README.md")
@@ -63,6 +70,7 @@ def test_readme_conformance():
     assert "superpowers:writing-plans" in content
     assert "superpowers:subagent-driven-development" in content
     assert "rules/explicit-approval.md" in content
+    assert "rules/reasoning-quality.md" in content
 
 def test_structured_subagent_payload_schema():
     payload = {

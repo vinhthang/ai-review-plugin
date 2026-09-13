@@ -242,3 +242,82 @@ def test_adversarial_prompt_injection_prevention(mock_run, target_and_repo):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
+
+def test_peer_review_shebang_present():
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../scripts/peer_review.py'))
+    with open(script_path, "r", encoding="utf-8") as f:
+        first_line = f.readline()
+    assert first_line.startswith("#!/usr/bin/env python3"), "peer_review.py must have a valid python3 shebang"
+
+@patch("peer_review.subprocess.Popen")
+def test_peer_review_prompt_has_adr_and_no_tech_debt(mock_run, target_and_repo):
+    target, repo = target_and_repo
+    
+    def side_effect(cmd, **kwargs):
+        if cmd[0] != "codex":
+            mock_proc = MagicMock()
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
+            mock_proc.communicate.return_value = (b"", b"")
+            mock_proc.__enter__.return_value = mock_proc
+            return mock_proc
+        
+        prompt_text = cmd[-1]
+        assert "docs/adr/" in prompt_text, "Prompt must include docs/adr/ context"
+        assert "docs/tech_debt" not in prompt_text, "Prompt must NOT include docs/tech_debt bypass"
+        
+        schema_idx = cmd.index("--output-schema")
+        schema_path = cmd[schema_idx + 1]
+        work_dir = os.path.dirname(schema_path)
+        with open(os.path.join(work_dir, "review.json"), 'w') as f:
+            json.dump({"issues": []}, f)
+        with open(os.path.join(work_dir, "stdout.log"), 'w') as f:
+            f.write('{"type": "thread.started", "thread_id": "test_session_id"}\n')
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate.return_value = (b"", b"")
+        return mock_proc
+
+    mock_run.side_effect = side_effect
+
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo]):
+        with pytest.raises(SystemExit) as e:
+            peer_review.main()
+        assert e.value.code == 0
+
+@patch("peer_review.subprocess.Popen")
+def test_peer_review_with_message(mock_run, target_and_repo):
+    target, repo = target_and_repo
+    
+    def side_effect(cmd, **kwargs):
+        if cmd[0] != "codex":
+            mock_proc = MagicMock()
+            mock_proc.returncode = 0
+            mock_proc.poll.return_value = 0
+            mock_proc.wait.return_value = 0
+            mock_proc.communicate.return_value = (b"", b"")
+            mock_proc.__enter__.return_value = mock_proc
+            return mock_proc
+        
+        prompt_text = cmd[-1]
+        assert "Message: rebuttal explaining design" in prompt_text
+        
+        schema_idx = cmd.index("--output-schema")
+        schema_path = cmd[schema_idx + 1]
+        work_dir = os.path.dirname(schema_path)
+        with open(os.path.join(work_dir, "review.json"), 'w') as f:
+            json.dump({"issues": []}, f)
+        with open(os.path.join(work_dir, "stdout.log"), 'w') as f:
+            f.write('{"type": "thread.started", "thread_id": "test_session_id"}\n')
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate.return_value = (b"", b"")
+        return mock_proc
+
+    mock_run.side_effect = side_effect
+
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--message", "rebuttal explaining design"]):
+        with pytest.raises(SystemExit) as e:
+            peer_review.main()
+        assert e.value.code == 0

@@ -1,6 +1,7 @@
 .DS_Store
 .tribunal/
 .plan-review/
+.code-review/
 __pycache__/
 .pytest_cache/
 codex_events.jsonl

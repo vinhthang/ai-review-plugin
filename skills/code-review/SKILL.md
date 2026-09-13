@@ -12,8 +12,8 @@ This skill performs a single-pass adversarial code review by spawning a `pro` (O
 - Identify the explicit list of files you modified or created for this task.
 - Generate a comprehensive diff using a temporary index to preserve the user's working state:
   ```bash
-  mkdir -p .plan-review
-  REVIEW_TARGET=$(mktemp "$(pwd)/.plan-review/review_XXXXXX.diff")
+  mkdir -p .code-review
+  REVIEW_TARGET=$(mktemp "$(pwd)/.code-review/review_XXXXXX")
   export GIT_INDEX_FILE=$(mktemp -u)
   if git rev-parse --verify HEAD >/dev/null 2>&1; then git read-tree HEAD; fi
   git add <FILES>
@@ -53,6 +53,7 @@ This skill performs a single-pass adversarial code review by spawning a `pro` (O
   - Retain `review.md` in the project root.
   - Do NOT tolerate problems or sweep them under the rug. P0/P1 blockers must be diagnosed and fixed before completion.
   - Reconcile findings against `implementation_plan.md` using `superpowers:systematic-debugging` to identify root causes prior to making any code corrections.
+  - After diagnosing root causes and implementing fixes, re-run this code review protocol to verify all P0/P1 blockers are resolved and `review_status == "approved"`.
 - If no P0/P1 issues were found (`review_status == "approved"`):
   - Retain `review.md` in the project root as verification evidence.
   - The Primary Agent compiles the final Architecture Decision Record to `docs/adr/YYYYMMDD_HHMM_<description>.md` referencing `implementation_plan.md`, `review.md`, and the verified code changes.
