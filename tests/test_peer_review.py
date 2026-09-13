@@ -773,3 +773,59 @@ def test_prompt_specs_context_conditional(mock_run, target_and_repo, spec_file):
     assert "docs/superpowers/specs/" not in prompt_code_mode
 
 
+@patch("peer_review.subprocess.Popen")
+def test_mode_code_valid_execution(mock_run, target_and_repo, capsys):
+    target, repo = target_and_repo
+    diff_file = os.path.join(repo, "changes.diff")
+    test_diff_content = "--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new\n"
+    with open(diff_file, "w", encoding="utf-8") as f:
+        f.write(test_diff_content)
+    
+    captured_copied_target = []
+    def side_effect(cmd, **kwargs):
+        if isinstance(cmd, list) and cmd and cmd[0] == "codex":
+            work_dir = os.path.dirname(cmd[cmd.index("-o") + 1])
+            target_copy_path = os.path.join(work_dir, "target.file")
+            if os.path.exists(target_copy_path):
+                with open(target_copy_path, "r", encoding="utf-8") as tf:
+                    captured_copied_target.append(tf.read())
+            review_file = os.path.join(work_dir, "review.json")
+            with open(review_file, "w", encoding="utf-8") as f:
+                json.dump({"issues": []}, f)
+            stdout_f = kwargs.get("stdout")
+            if stdout_f:
+                stdout_f.write(json.dumps({"type": "thread.started", "thread_id": "mock_code_thread_123"}) + "\n")
+                stdout_f.flush()
+        proc = MagicMock()
+        proc.poll.return_value = 0
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.communicate.return_value = ("", "")
+        proc.__enter__.return_value = proc
+        return proc
+    mock_run.side_effect = side_effect
+
+    with patch("sys.argv", ["peer_review.py", "--target", diff_file, "--mode", "code", "--repo", repo]):
+        with pytest.raises(SystemExit) as exc_info:
+            peer_review.main()
+        assert exc_info.value.code == 0
+    
+    # Verify prompt construction contract
+    cmd = mock_run.call_args[0][0]
+    prompt = cmd[-1]
+    assert "Perform a code review of this file:" in prompt
+    assert "Focus on code-level issues, logic, and correctness." in prompt
+    assert "Governing Specification:" not in prompt
+    assert "Standalone Plan Review:" not in prompt
+    
+    # Verify diff content was preserved in target copy
+    assert len(captured_copied_target) == 1
+    assert captured_copied_target[0] == test_diff_content
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["session_id"] == "mock_code_thread_123"
+    assert len(data["issues"]) == 0
+
+
+
