@@ -4,28 +4,41 @@ description: An on-demand skill that performs a one-shot peer review on code cha
 ---
 # Code Review
 
-This skill performs a single-pass adversarial code review by spawning a `pro` (Opus) subagent. It does NOT negotiate or retry — it produces a `review.md` file with P0/P1/P2 findings for the agent to reconcile.
+This skill performs a single-pass adversarial code review using an explicit two-stage delegation workflow to comply with Attention Guard rules. The Primary Agent delegates terminal execution to subagents according to the Model Selection Framework. It does NOT negotiate or retry — it produces a `review.md` file with P0/P1/P2 findings for the agent to reconcile.
 
 ## Steps
 
-### 1. Generate Diff
-- Identify the explicit list of files you modified or created for this task.
-- Generate a comprehensive diff using a temporary index to preserve the user's working state:
+### Stage 1: Generate Diff (Flash Subagent)
+- The Primary Agent MUST NOT execute terminal commands directly in Phase 1 per `attention-guard/rules/AGENTS.md`.
+- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md` before spawning the subagent.
+- Use `invoke_subagent` with `Model: flash` to spawn a diff generation subagent.
+- Provide the subagent with the explicit list of files modified or created for this task.
+- The `flash` subagent runs the diff script using `rtk git` command prefixing per `rules/rtk.md` and a temporary index to preserve the user's working state:
   ```bash
   mkdir -p .code-review
   REVIEW_TARGET=$(mktemp "$(pwd)/.code-review/review_XXXXXX")
   export GIT_INDEX_FILE=$(mktemp -u)
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then git read-tree HEAD; fi
-  git add <FILES>
-  if git rev-parse --verify HEAD >/dev/null 2>&1; then git diff --cached HEAD > "$REVIEW_TARGET"; else git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi
+  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
+  rtk git add <FILES>
+  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git diff --cached HEAD > "$REVIEW_TARGET"; else rtk git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi
   if ! test -s "$REVIEW_TARGET"; then rm -f "$REVIEW_TARGET" "$GIT_INDEX_FILE"; echo "No changes to review."; exit 0; fi
   rm "$GIT_INDEX_FILE"
   unset GIT_INDEX_FILE
   ```
+- The `flash` subagent returns the `$REVIEW_TARGET` path via `send_message` with a strict JSON payload:
+  ```json
+  {
+    "status": "completed",
+    "summary": "Diff generated successfully",
+    "review_target": "/absolute/path/to/.code-review/review_XXXXXX"
+  }
+  ```
+- If no changes were detected, the subagent returns `{"status": "completed", "summary": "No changes to review", "review_target": null}` and review terminates early.
 
-### 2. Submit for Review
-- Use `invoke_subagent` with `Model: pro` to spawn a Peer Reviewer subagent.
-- Pass the diff content along with the `implementation_plan.md` (if it exists) for context.
+### Stage 2: Adversarial Peer Review (Pro Subagent)
+- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
+- Use `invoke_subagent` with `Model: pro` to spawn a Peer Reviewer subagent to conduct the adversarial review on that diff.
+- Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
 - Instruct the reviewer to apply the `superpowers` rule and output findings as a structured JSON payload:
   ```json
   {
@@ -44,7 +57,7 @@ This skill performs a single-pass adversarial code review by spawning a `pro` (O
 ### 3. Save Results
 - Write the reviewer's findings to `review.md` in the project root directory.
 - Format with sections: Executive Summary, P0 Issues (Critical), P1 Issues (Blocking), P2 Issues (Advisory).
-- Delete the temporary `<REVIEW_TARGET>` diff file.
+- Delete the temporary `$REVIEW_TARGET` diff file.
 - Use `manage_subagents` to kill the Peer Reviewer subagent.
 
 ### 4. Evaluate Results

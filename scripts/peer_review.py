@@ -63,7 +63,7 @@ def _main():
         os.mkdir(repo_copy)
         subprocess.run(["rsync", "-a", "--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", f"{repo}/", f"{repo_copy}/"], check=True)
             
-        with open(schema_path, 'w') as f:
+        with open(schema_path, 'w', encoding="utf-8") as f:
             json.dump(SCHEMA, f)
         
         prompt_text = f"Perform a {args.mode} review of this file: " + target_copy
@@ -95,7 +95,7 @@ def _main():
                 "--json", "--output-schema", schema_path, "-o", review_file, prompt_text
             ]
             
-        with open(fout_path, "w") as fout, open(ferr_path, "w") as ferr:
+        with open(fout_path, "w", encoding="utf-8") as fout, open(ferr_path, "w", encoding="utf-8") as ferr:
             try:
                 process = subprocess.Popen(cmd, stdout=fout, stderr=ferr, stdin=subprocess.DEVNULL, start_new_session=True)
             except OSError as e:
@@ -114,38 +114,43 @@ def _main():
                 try: os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError: pass
                 
-                try: process.communicate()
-                except BaseException: pass
+                try:
+                    process.communicate()
+                except (OSError, ValueError, subprocess.SubprocessError) as comm_err:
+                    print(f"Warning: error during process communicate on cleanup: {comm_err}", file=sys.stderr)
                 
                 print("Fatal: codex launch timed out", file=sys.stderr)
-                with open(ferr_path, 'r') as err_f:
+                with open(ferr_path, 'r', encoding="utf-8") as err_f:
                     print(err_f.read(), file=sys.stderr)
                 sys.exit(2)
             except BaseException as e:
                 try: os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError: pass
-                process.communicate()
+                try:
+                    process.communicate()
+                except (OSError, ValueError, subprocess.SubprocessError) as comm_err:
+                    print(f"Warning: error during process cleanup: {comm_err}", file=sys.stderr)
                 raise e
 
         if process.returncode != 0:
             print(f"Fatal: codex command failed with code {process.returncode}", file=sys.stderr)
-            with open(ferr_path, 'r') as err_f:
+            with open(ferr_path, 'r', encoding="utf-8") as err_f:
                 print(err_f.read(), file=sys.stderr)
             sys.exit(2)
 
         session_id = args.session_id
         if not session_id:
-            with open(fout_path, 'r') as fr:
+            with open(fout_path, 'r', encoding="utf-8") as fr:
                 for line in fr:
                     try:
                         msg = json.loads(line)
-                        if msg.get("type") == "thread.started" and "thread_id" in msg:
+                        if isinstance(msg, dict) and msg.get("type") == "thread.started" and "thread_id" in msg:
                             t_id = msg["thread_id"]
                             if isinstance(t_id, str) and t_id:
                                 session_id = t_id
                                 break
-                    except Exception:
-                        pass
+                    except json.JSONDecodeError as err:
+                        print(f"Debug: skipping non-json stdout line: {err}", file=sys.stderr)
             if not session_id:
                 print("Fatal: Could not find thread.started event in stdout.log.", file=sys.stderr)
                 sys.exit(2)
@@ -155,7 +160,7 @@ def _main():
             sys.exit(2)
             
         try:
-            with open(review_file, 'r') as f:
+            with open(review_file, 'r', encoding="utf-8") as f:
                 review = json.load(f)
         except (json.JSONDecodeError, UnicodeDecodeError, OSError):
             print("Fatal: review.json corrupt.", file=sys.stderr)

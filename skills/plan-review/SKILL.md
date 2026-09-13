@@ -18,7 +18,7 @@ stateDiagram-v2
     SELF_REVIEW --> ESCALATE : Fix is flawed (self_review_counter >= 3)
     REVIEW --> EVALUATE : Subagent Completed
     REVIEW --> ABORT : Subagent Failed
-    EVALUATE --> APPROVAL_GATE : review_status == "approved"
+    EVALUATE --> APPROVAL_GATE : review_status == "approved" or (review_status == "rejected" and no P0/P1 issues)
     EVALUATE --> ESCALATE : Attempts >= 5 or 3-Attempt Deadlock
     EVALUATE --> DIAGNOSE : review_status == "rejected" (Agree with P0/P1)
     EVALUATE --> DEBATE : review_status == "rejected" (Disagree with P0/P1)
@@ -26,7 +26,7 @@ stateDiagram-v2
     DIAGNOSE --> FIX
     FIX --> SELF_REVIEW
     DEBATE --> REVIEW
-    ESCALATE --> PREPARE : User Provides Resolution
+    ESCALATE --> PREPARE : User Provides Resolution (Reset self_review_counter = 0)
     ESCALATE --> ABORT : User Rejects
     APPROVAL_GATE --> EXECUTE : User Explicitly Approves ("Proceed")
     APPROVAL_GATE --> ABORT : User Rejects
@@ -72,6 +72,7 @@ stateDiagram-v2
 ### State: PREPARE (Step 4: Design Plans)
 **Action:**
 - Write the technical specification to `implementation_plan.md` in the project root directory.
+- Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter` is reset to `0` to prevent post-escalation deadlocks.
 - **Strict Format Standardization**: Adhere strictly to the format defined in `superpowers:writing-plans`:
   - Standard plan header:
     ```markdown
@@ -124,7 +125,7 @@ stateDiagram-v2
   }
   ```
 - For Attempts 2+: Use `send_message` to communicate revisions or rebuttals to the existing Peer Reviewer subagent (using its `conversation_id`).
-- Set a liveness timer via `schedule` with `TimerCondition: any` per `rules/agent-delegation.md`.
+- Set a liveness timer via `schedule` with `TimerCondition: any` per `attention-guard/rules/AGENTS.md`.
 - Save the subagent's `conversation_id` for subsequent turns.
 - Save the full JSON response to `review.json` in the project root directory.
 
@@ -140,9 +141,11 @@ stateDiagram-v2
   - P1 issues are functional bugs, missing requirements, or unhandled edge cases.
 - Apply Ray Dalio's Principle: **Don't Tolerate Problems**. Never sweep P0/P1 issues under the rug or relegate them to a backlog. P0 issues must be resolved before proceeding.
 - If the outcome is to fix, reset `self_review_counter = 0` and `debate_counter = 0`.
+- **P2-Only Guard**: If `review_status == "rejected"` but no P0/P1 issues exist (only P2 advisory issues exist), treat as advisory and transition to `APPROVAL_GATE`.
 
 **Transitions:**
 - Priority 1: If `review_status == "approved"` and no P0/P1 issues exist -> Transition to `APPROVAL_GATE`
+- Priority 1 (P2-Only Guard): If `review_status == "rejected"` but no P0/P1 issues exist -> Treat as advisory and Transition to `APPROVAL_GATE`
 - Priority 2: If `review_status == "rejected"` and `attempt_counter >= 5` -> Transition to `ESCALATE`
 - Priority 2: If `review_status == "rejected"` and `debate_counter >= 3` on the same issue -> Transition to `ESCALATE`
 - Priority 3: If (`review_status == "rejected"` or P0/P1 issues exist) and you agree with the P0/P1 issues -> Transition to `DIAGNOSE`
@@ -185,7 +188,7 @@ stateDiagram-v2
 
 **Transitions:**
 - Wait for user input:
-  - If User provides resolution or architectural guidance -> Incorporate user decision into plan and Transition to `PREPARE`
+  - If User provides resolution or architectural guidance -> Reset `self_review_counter = 0` to prevent post-escalation deadlocks, incorporate user decision into plan, and Transition to `PREPARE`
   - If User Rejects -> Transition to `ABORT`
 
 ### State: APPROVAL_GATE (Step 5: Push to Results / Execution Gate)
