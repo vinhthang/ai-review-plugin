@@ -38,6 +38,7 @@ def test_spec_review_skill_conformance():
     assert "PREPARE --> REVIEW" in content
     assert "REVIEW --> EVALUATE" in content
     assert "EVALUATE --> APPROVAL_GATE" in content
+    assert 'no P0/P1 issues exist (approved or advisory rejected)' in content, "Mermaid diagram must use unambiguous boolean transition label"
     assert "APPROVAL_GATE --> DONE" in content
 
     # Clean subagent protocols - no legacy Exit codes, proper payload schema
@@ -107,6 +108,7 @@ def test_plan_review_skill_conformance():
     assert "attempt_counter >= 5" in content
     assert "debate_counter >= 3" in content
     assert "ISSUE-R3-01" in content or "Escalation Ceiling" in content
+    assert 'no P0/P1 issues exist (approved or advisory rejected)' in content, "Mermaid diagram must use unambiguous boolean transition label"
 
 def test_code_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "code-review", "SKILL.md")

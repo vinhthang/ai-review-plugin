@@ -28,7 +28,7 @@ stateDiagram-v2
     SELF_REVIEW --> ESCALATE : Fix is Incomplete (self_review_counter >= 3)
     REVIEW --> EVALUATE : Subagent Completed
     REVIEW --> ABORT : Subagent Failed / Launch Error
-    EVALUATE --> APPROVAL_GATE : review_status == "approved" or (review_status == "rejected" and no P0/P1 issues)
+    EVALUATE --> APPROVAL_GATE : no P0/P1 issues exist (approved or advisory rejected)
     EVALUATE --> ESCALATE : attempt_counter >= 5 or debate_counter >= 3
     EVALUATE --> DIAGNOSE : review_status == "rejected" (Agree with P0/P1)
     EVALUATE --> DEBATE : review_status == "rejected" (Disagree with P0/P1)
