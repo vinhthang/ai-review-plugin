@@ -1,138 +1,85 @@
 ---
 name: code-review
-description: An on-demand skill that performs a rigorous multi-model peer review on code changes.
+description: An on-demand skill that performs a one-shot peer review on code changes and outputs findings to review.md.
 ---
-# Code Review Protocol
+# Code Review
 
-```mermaid
-stateDiagram-v2
-    [*] --> INIT
-    INIT --> PREPARE
-    PREPARE --> ABORT : Preparation Failure
-    PREPARE --> REVIEW : attempt_counter == 0
-    PREPARE --> SELF_REVIEW : attempt_counter > 0
-    SELF_REVIEW --> REVIEW : Fix is adequate
-    SELF_REVIEW --> FIX : Fix is flawed (self_review_counter < 3)
-    SELF_REVIEW --> ESCALATE : Fix is flawed (self_review_counter >= 3)
-    REVIEW --> EVALUATE
-    REVIEW --> DONE : Exit 2 (Fatal)
-    EVALUATE --> DONE : Exit 0 (Approval)
-    EVALUATE --> ESCALATE : Attempts >= 5 or 3-Attempt Deadlock
-    EVALUATE --> FIX : Agree with P0/P1
-    EVALUATE --> DEBATE : Disagree with P0/P1
-    FIX --> PREPARE
-    DEBATE --> REVIEW
-    ESCALATE --> DONE : User Approves
-    ESCALATE --> ABORT : User Rejects
-    ABORT --> [*]
-    DONE --> [*]
-```
+This skill performs a single-pass adversarial code review using an explicit two-stage delegation workflow to comply with Attention Guard rules. The Primary Agent delegates terminal execution to subagents according to the Model Selection Framework. It does NOT negotiate or retry — it produces a `review.md` file with P0/P1/P2 findings for the agent to reconcile.
 
-### State: INIT
-**Action:**
-- Initialize `attempt_counter = 0`, `session_id = null`, and `self_review_counter = 0`.
+## Steps
 
-**Transitions:**
-- -> Transition to `PREPARE`
+### Stage 1: Generate Diff (Flash Subagent)
+- The Primary Agent MUST NOT execute terminal commands directly in Phase 1 per `attention-guard/rules/AGENTS.md`.
+- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md` before spawning the subagent.
+- Use `invoke_subagent` with `Model: flash` to spawn a diff generation subagent.
+- Provide the subagent with the explicit list of files modified or created for this task.
+- The `flash` subagent runs the diff script using `rtk git` command prefixing per `rules/rtk.md` and a temporary index to preserve the user's working state, with a POSIX signal trap to ensure `GIT_INDEX_FILE` environment variable cleanup (ISSUE-R2-01):
+  ```bash
+  mkdir -p .code-review
+  REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")
+  export GIT_INDEX_FILE=$(mktemp -u)
+  trap 'unset GIT_INDEX_FILE; rm -f "$GIT_INDEX_FILE"' EXIT
+  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
+  rtk git add <FILES>
+  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git diff --cached HEAD > "$REVIEW_TARGET"; else rtk git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi
+  if ! test -s "$REVIEW_TARGET"; then
+    rm -f "$REVIEW_TARGET"
+    cat << 'EOF' > review.md
+  # Code Review: Clean
+  **Status**: Approved (No changes to review)
+  No modified files or differences detected against target.
+  EOF
+    echo "No changes to review."
+    exit 0
+  fi
+  rm -f "$GIT_INDEX_FILE"
+  unset GIT_INDEX_FILE
+  ```
+- The `flash` subagent returns the `$REVIEW_TARGET` path via `send_message` with a strict JSON payload:
+  ```json
+  {
+    "status": "completed",
+    "summary": "Diff generated successfully",
+    "review_target": "/absolute/path/to/.code-review/review_XXXXXX"
+  }
+  ```
+- **Empty Diff Handling (ISSUE-R3-03)**: If no changes were detected, the subagent writes `review.md` documenting clean verification evidence and returns `{"status": "completed", "summary": "No changes to review", "review_target": null}`. `review.md` is preserved in the project root as mandatory verification evidence, and review terminates early.
+- The Primary Agent uses `manage_subagents` to terminate the diff generation subagent.
 
-### State: ABORT
-**Action:**
-- Clean up temporary artifacts (`$REVIEW_TARGET`, `$GIT_INDEX_FILE`).
-- Stop execution.
+### Stage 2: Adversarial Peer Review (Pro Subagent)
+- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
+- Use `invoke_subagent` with `Model: pro` to spawn a Peer Reviewer subagent to conduct the adversarial review on that diff.
+- Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
+- Instruct the reviewer to apply the `superpowers` rule and output findings as a structured JSON payload:
+  ```json
+  {
+    "status": "completed",
+    "review_status": "approved|rejected",
+    "summary": "Executive summary of the code review",
+    "issues": [
+      {
+        "severity": "P0|P1|P2",
+        "description": "Clear explanation of the defect and location"
+      }
+    ]
+  }
+  ```
 
-**Transitions:**
-- -> [Terminal State]
+### Stage 3: Save Results
+- Write the reviewer's findings to `review.md` in the project root directory.
+- Format with sections: Executive Summary, P0 Issues (Critical), P1 Issues (Blocking), P2 Issues (Advisory).
+- Delete the temporary `$REVIEW_TARGET` diff file.
+- Use `manage_subagents` to kill the Peer Reviewer subagent.
 
-### State: PREPARE
-**Action:**
-- Identify the explicit list of files you modified or created for this task.
-- Generate a comprehensive diff using a temporary index to preserve the user's working state:
-  `mkdir -p .tribunal`
-  `REVIEW_TARGET=$(mktemp "$(pwd)/.tribunal/review_XXXXXX.diff")`
-  `export GIT_INDEX_FILE=$(mktemp -u)`
-  `git read-tree HEAD || true`
-  `git add <FILES>`
-  `if git rev-parse HEAD >/dev/null 2>&1; then git diff --cached HEAD > "$REVIEW_TARGET"; else git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi`
-  `if ! test -s "$REVIEW_TARGET"; then rm -f "$REVIEW_TARGET" "$GIT_INDEX_FILE"; exit 1; fi`
-  `rm "$GIT_INDEX_FILE"`
-  `unset GIT_INDEX_FILE`
-
-**Transitions:**
-- On failure (e.g. empty diff, command failure) -> Transition to `ABORT`
-- On success and `attempt_counter == 0` -> Transition to `REVIEW`
-- On success and `attempt_counter > 0` -> Transition to `SELF_REVIEW`
-
-### State: SELF_REVIEW
-**Action:**
-- You are acting as a Pre-Reviewer.
-- Read the contents of the `<REVIEW_TARGET>` file. Evaluate if the code modifications solve the issues without regressions.
-- Compare the changes against the P0/P1 issues that Codex raised in the previous iteration.
-- Increment the `self_review_counter`.
-
-**Transitions:**
-- If the fix is adequate -> Transition to `REVIEW` (to submit to Codex)
-- If the fix is flawed or incomplete and `self_review_counter < 3` -> Transition to `FIX` (to modify again)
-- If the fix is flawed or incomplete and `self_review_counter >= 3` -> Transition to `ESCALATE`
-
-### State: REVIEW
-**Action:**
-- Increment your internal attempt counter.
-- Run the peer review script:
-  - For Attempt 1:
-    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode code --target "<REVIEW_TARGET>" --repo .`
-  - For Attempts 2+: Substitute `<SESSION_ID>` literally using the stored ID.
-    `python3 ~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py --mode code --target "<REVIEW_TARGET>" --repo . --session-id "<SESSION_ID>" [--message "<MESSAGE>"]`
-- Check for Exit 2 (Fatal) before attempting to parse the JSON output.
-- Parse the JSON output, extract and save the `session_id` for subsequent attempts.
-- Save the full JSON to `docs/adr/<timestamp>_review_rev<N>.json`.
-
-**Transitions:**
-- If Exit 2 (Fatal) -> Transition to `DONE`
-- Else -> Transition to `EVALUATE`
-
-### State: EVALUATE
-**Action:**
-- Analyze the JSON output. 
-- P2 issues are non-blocking advisory feedback.
-- Evaluate guards in priority order.
-- If the outcome is to fix, reset `self_review_counter = 0`.
-
-**Transitions:**
-- Priority 1: If Exit 0 (Approved) -> Transition to `DONE`
-- Priority 2: If Exit 1 (Rejected) and attempt counter >= 5 -> Transition to `ESCALATE`
-- Priority 2: If Exit 1 (Rejected) and Codex has refused your rebuttal 3 times on the same issue -> Transition to `ESCALATE`
-- Priority 3: If Exit 1 (Rejected) and you agree with the P0/P1 issues -> Transition to `FIX`
-- Priority 3: If Exit 1 (Rejected) and you disagree (e.g. out of scope, incorrect) -> Transition to `DEBATE`
-
-### State: FIX
-**Action:**
-- Modify the codebase to address the P0/P1 issues.
-- Clean up the old `REVIEW_TARGET` `mktemp` diff file to avoid orphaned files.
-
-**Transitions:**
-- -> Transition to `PREPARE` (to regenerate the `.diff` file and start over)
-
-### State: DEBATE
-**Action:**
-- Do not change the code. Formulate a technical rebuttal explaining why the issue is invalid or out of scope.
-
-**Transitions:**
-- -> Transition to `REVIEW` (pass the rebuttal using the `--message` argument and include `--session-id`)
-
-### State: ESCALATE
-**Action:**
-- The review is deadlocked or has exceeded the attempt limit.
-- STOP execution and request explicit User approval. Do not report findings as tech debt unless the user approves.
-
-**Transitions:**
-- Wait for user input.
-  - If User Approves -> Write a markdown file explaining the dispute to `docs/tech_debt/<issue_name>.md`, then Transition to `DONE`
-  - If User Rejects -> Transition to `ABORT`
-
-### State: DONE
-**Action:**
-- Delete `<REVIEW_TARGET>`.
-- If Approved, generate a `consensus_summary.md` artifact summarizing the design.
-
-**Transitions:**
-- -> [Terminal State]
+### Stage 4: Evaluate Results
+- **Preserve Verification Evidence (ISSUE-R3-03)**: Never delete `review.md`. It serves as the authoritative verification artifact proving the code was scrutinized. Even on clean diffs or zero-defect passes, `review.md` must be retained in the project root.
+- **Attempt Tracking & Escalation Ceiling (ISSUE-R3-02)**: Maintain an attempt counter (`attempt_counter`). If P0/P1 blockers remain unresolved after 5 attempts (`attempt_counter >= 5`), stop autonomous looping and transition to `ESCALATE` (present the unresolved blockers, trade-offs, and root cause findings to the human user).
+- If P0/P1 issues were found (`review_status == "rejected"` with blocking defects):
+  - Retain `review.md` in the project root.
+  - Do NOT tolerate problems or sweep them under the rug. P0/P1 blockers must be diagnosed and fixed before completion.
+  - Reconcile findings against `implementation_plan.md` using `superpowers:systematic-debugging` to identify root causes prior to making any code corrections.
+  - After diagnosing root causes and implementing fixes, increment `attempt_counter`. If `attempt_counter >= 5`, transition to `ESCALATE`. Otherwise, re-run this code review protocol to verify all P0/P1 blockers are resolved and `review_status == "approved"`.
+- If no P0/P1 issues were found (`review_status == "approved"` or P2 advisory issues only):
+  - Treat P2 advisory issues as non-blocking suggestions.
+  - Retain `review.md` in the project root as verification evidence.
+  - The Primary Agent compiles the final Architecture Decision Record to `docs/adr/YYYYMMDD_HHMM_<description>.md` referencing `implementation_plan.md`, `review.md`, and the verified code changes.
