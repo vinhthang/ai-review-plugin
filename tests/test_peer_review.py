@@ -694,3 +694,31 @@ def test_shutil_copytree_fallback(mock_run, mock_which, target_and_repo):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
+
+
+@patch("peer_review.subprocess.Popen")
+def test_plan_mode_prompt_target_wording(mock_run, target_and_repo):
+    target, repo = target_and_repo
+    def side_effect(cmd, **kwargs):
+        if isinstance(cmd, list) and cmd and cmd[0] == "codex":
+            work_dir = os.path.dirname(cmd[cmd.index("-o") + 1])
+            with open(os.path.join(work_dir, "review.json"), "w", encoding="utf-8") as f:
+                json.dump({"issues": []}, f)
+            kwargs["stdout"].write(json.dumps({"type": "thread.started", "thread_id": "t1"}) + "\n")
+        proc = MagicMock()
+        proc.poll.return_value = 0
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.communicate.return_value = ("", "")
+        proc.__enter__.return_value = proc
+        return proc
+    mock_run.side_effect = side_effect
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+        with pytest.raises(SystemExit) as exc_info:
+            peer_review.main()
+        assert exc_info.value.code == 0
+    cmd = mock_run.call_args[0][0]
+    prompt = cmd[-1]
+    assert "strictly as the plan to review" in prompt
+    assert "strictly as the code to review" not in prompt
+
