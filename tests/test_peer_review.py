@@ -722,3 +722,54 @@ def test_plan_mode_prompt_target_wording(mock_run, target_and_repo):
     assert "strictly as the plan to review" in prompt
     assert "strictly as the code to review" not in prompt
 
+
+@patch("peer_review.subprocess.Popen")
+def test_prompt_specs_context_conditional(mock_run, target_and_repo, spec_file):
+    target, repo = target_and_repo
+    diff_file = os.path.join(repo, "changes.diff")
+    with open(diff_file, "w", encoding="utf-8") as f:
+        f.write("--- a/f\n+++ b/f\n")
+    def side_effect(cmd, **kwargs):
+        if isinstance(cmd, list) and cmd and cmd[0] == "codex":
+            work_dir = os.path.dirname(cmd[cmd.index("-o") + 1])
+            with open(os.path.join(work_dir, "review.json"), "w", encoding="utf-8") as f:
+                json.dump({"issues": []}, f)
+            kwargs["stdout"].write(json.dumps({"type": "thread.started", "thread_id": "t1"}) + "\n")
+        proc = MagicMock()
+        proc.poll.return_value = 0
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.communicate.return_value = ("", "")
+        proc.__enter__.return_value = proc
+        return proc
+    mock_run.side_effect = side_effect
+    
+    # Test 1: plan mode with --spec includes specs directory
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--spec", spec_file]):
+        with pytest.raises(SystemExit):
+            peer_review.main()
+    prompt_with_spec = mock_run.call_args[0][0][-1]
+    assert "docs/superpowers/specs/" in prompt_with_spec
+    
+    # Test 2: plan mode with --no-spec excludes specs directory
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+        with pytest.raises(SystemExit):
+            peer_review.main()
+    prompt_no_spec = mock_run.call_args[0][0][-1]
+    assert "docs/superpowers/specs/" not in prompt_no_spec
+    
+    # Test 3: spec mode excludes docs/superpowers/specs/ (spec is the target itself)
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "spec", "--repo", repo]):
+        with pytest.raises(SystemExit):
+            peer_review.main()
+    prompt_spec_mode = mock_run.call_args[0][0][-1]
+    assert "docs/superpowers/specs/" not in prompt_spec_mode
+
+    # Test 4: code mode excludes docs/superpowers/specs/ (spec flag is forbidden)
+    with patch("sys.argv", ["peer_review.py", "--target", diff_file, "--mode", "code", "--repo", repo]):
+        with pytest.raises(SystemExit):
+            peer_review.main()
+    prompt_code_mode = mock_run.call_args[0][0][-1]
+    assert "docs/superpowers/specs/" not in prompt_code_mode
+
+
