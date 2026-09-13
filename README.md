@@ -1,145 +1,159 @@
-# Tribunal: Autonomous Multi-Model Planning Protocol
+# Plan-Review: Autonomous Multi-Model Planning & Review Protocol
 
-Tribunal is an autonomous multi-model planning and review protocol designed to ensure architectural soundness, prevent regressions, and enforce rigorous verification before code implementation begins.
+Plan-Review is an autonomous multi-model planning and review protocol designed to ensure architectural soundness, prevent regressions, and enforce rigorous verification before code implementation begins.
 
 ## Conceptual Framework: Ray Dalio's 5-Step Process
 
-Tribunal is inspired by Ray Dalio's 5-step process for getting what you want out of life and achieving operational excellence:
+Plan-Review embodies Ray Dalio's 5-step process for achieving operational excellence:
 
-1. **Set Clear Goals**: Define the overarching architectural and functional objectives of the task without ambiguity.
-2. **Identify Problems**: Surface constraints, potential breakage points, conflicting dependencies, and architectural risks early.
-3. **Diagnose Root Causes**: Analyze underlying codebase realities and system trade-offs rather than jumping straight to superficial fixes.
-4. **Design Plans**: Formulate a comprehensive, actionable specification (`docs/adr/..._implementation_plan_rev<N>.md`) as an Architecture Decision Record tailored to overcome identified challenges.
-5. **Execute Tasks**: Push through the designed plan to completion with systematic verification once consensus is reached.
+1. **Set Clear Goals**: Explore user intent, uncover constraints, evaluate trade-offs, and clarify requirements before drafting any plan, seamlessly integrating with `superpowers:brainstorming`.
+2. **Identify Problems (Don't Tolerate Problems)**: Surface constraints, breaking changes, and architectural risks early. Never sweep problems under the rug: P0/P1 blockers are never relegated to tech-debt bypass backlogs—P0 issues halt execution and require explicit human resolution.
+3. **Diagnose Root Causes**: When a peer review rejects a plan, diagnose the fundamental root cause using `superpowers:systematic-debugging` rather than applying superficial fixes to the plan text.
+4. **Design Plans**: Formulate a comprehensive, actionable specification adhering to `superpowers:writing-plans` (2–5 minute bite-sized tasks, exact file paths, explicit interfaces, and concrete test commands).
+5. **Push to Results (Execution)**: Enforce an explicit human approval gate per `rules/explicit-approval.md` and `rules/reasoning-quality.md`. Once approved by the user, delegate execution to `superpowers:subagent-driven-development` with continuous verification.
 
 ---
 
 ## Installation
 
-This plugin **must** be installed into the exact directory path `~/.gemini/config/plugins/ai-review-plugin` for the internal paths to resolve correctly across workspaces.
+This plugin **must** be installed into the exact directory path `~/.gemini/config/plugins/ai-review-plugin` for internal paths and skills to resolve correctly across workspaces.
 
 ---
 
 ## Architecture & Multi-Model Workflow
 
-Tribunal separates planning and auditing across two distinct AI models to eliminate blind spots and self-confirmation bias:
+Plan-Review separates planning and auditing across two distinct AI models to eliminate blind spots and self-confirmation bias:
 
 ```
-                  +-------------------------+
-                  |  User / Task Request    |
-                  +------------+------------+
-                               |
-                               v
-                  +-------------------------+
-       +--------->|  Model A: Primary Agent |<---------+
-       |          |  (Goal & Plan Design)   |          |
-       |          +------------+------------+          |
-       |                       |                       |
-       |                       | Writes/Updates        |
-       |                       v                       |
-       | docs/adr/*_implementation_plan_rev<N>.md |
-       |                       |                       |
-Re-plan with                   | Audits (read-only)    | Resume Session
-Feedback                       v                       | (Attempt 2..5)
-       |          +-------------------------+          |
-       |          |  Model B: Codex CLI     |----------+
-       |          |  (Adversarial Review)   |
-       |          +------------+------------+
-       |                       |
-       |                       | Emits
-       |                       v
-       |                 stdout (JSON)
-       |                       |
-       |        +--------------+--------------+
-       |        |                             |
-       +--(Rejected / approved: false)        |
-                |                             v
-                |                   (Approved / approved: true)
-         [Attempt >= 5]                       |
-                |                             v
-                v                 +-------------------------+
-        Halt & Escalate           |  Automatic Execution    |
-            to User               |  (Model A Implements)   |
-                                  +-------------------------+
+                  +-------------------------------+
+                  |      User / Task Request      |
+                  +---------------+---------------+
+                                  |
+                                  v
+                  +-------------------------------+
+                  | Step 1: Brainstorming (Goals) |
+                  |   (superpowers:brainstorming) |
+                  +---------------+---------------+
+                                  |
+                                  v
+                  +-------------------------------+
+       +--------->|  Model A: Primary Agent       |<---------+
+       |          |  (Step 4: writing-plans)      |          |
+       |          +---------------+---------------+          |
+       |                          |                          |
+       |                          | Writes / Updates         |
+       |                          v                          |
+       |               implementation_plan.md                |
+       |                          |                          |
+       |                          | Spawns & Audits          | Rebuttal /
+       |                          v                          | Resumed Turn
+       |          +-------------------------------+          |
+       |          | Model B: Peer Reviewer Subagent|---------+
+       |          | (Model: pro / Opus)           |
+       |          +---------------+---------------+
+       |                          |
+       |                          | Emits Structured JSON
+       |                          v
+       |                    review.json
+       |                          |
+       |         +----------------+----------------+
+       |         |                                 |
+       |         v                                 v
+       |  (review_status: rejected)       (review_status: approved)
+       |         |                                 |
+       |  [Step 3: Systematic Debugging]           v
+       +--[Diagnose Root Cause & Fix]     +-------------------------------+
+                 |                        | Explicit Human Approval Gate  |
+           [Deadlock / Att >= 5]          |  (rules/explicit-approval.md) |
+                 |                        +---------------+---------------+
+                 v                                        |
+       +-------------------------------+                  v (User Approves)
+       | Step 2: Halt & Escalate       |  +-------------------------------+
+       | (Explicit Human Resolution)   |  | Step 5: Execute via Subagents |
+       +-------------------------------+  | (subagent-driven-development) |
+                                          +-------------------------------+
 ```
 
 ### Components
 
 - **Model A (Primary Agent)**:
-  - Explores and contexts the target codebase.
-  - Addresses prior blocking issues if review feedback exists.
-  - Drafts and iteratively refines plans in `docs/adr/` as Architecture Decision Records.
-  - Manages the 1-based attempt counter and session resumption.
-  - Captures the JSON from stdout and manually saves it to `docs/adr/` to preserve history.
-  - Upon approval, generates a `consensus_summary.md` artifact summarizing the agreed-upon design/code.
+  - Conducts goal exploration via `superpowers:brainstorming`.
+  - Audits architectural blast radius and edge cases.
+  - Drafts and refines `implementation_plan.md` adhering to `superpowers:writing-plans`.
+  - Conducts Pre-Review self-checks before dispatching to the reviewer.
+  - Manages the peer review lifecycle and structured JSON communication.
+  - If rejected, diagnoses the structural root cause via `superpowers:systematic-debugging` before fixing.
+  - Upon approval, stops at the **Explicit Human Approval Gate** and awaits user confirmation before executing.
 
-- **Model B (Codex CLI Peer Reviewer)**:
-  - Runs in a strict `--sandbox read-only` environment, guaranteeing that auditing the codebase cannot cause accidental side-effects, file overwrites, or code mutations.
-  - Audits the implementation plan directly against workspace files in `$(pwd)`.
-  - Evaluates architectural blast radius, edge cases, and contract compliance.
-  - Emits event logs on stdout, errors on stderr, and structured findings to `review.json` containing an `issues` list, where each issue has a `description` and a `severity` classification:
-    - **P0 (Critical Blocking)**: Severe architectural flaws, security risks, or guaranteed regressions. Must be fixed before execution.
-    - **P1 (Standard Blocking)**: Functional bugs, missing requirements, or significant edge cases. Must be fixed before execution.
-    - **P2 (Non-Blocking Advice)**: Optimization suggestions, style improvements, or minor edge cases. Emitted as optional advice and does not block execution.
-
----
-
-## Peer-Review Negotiation
-
-The Agent does not blindly accept issues reported by Codex. It critically analyzes the feedback and negotiates using the `--message` argument to debate Codex if it believes an issue is out of scope, factually incorrect, or breaks the user's design. If a deadlock occurs after 3 attempts (i.e., Codex repeatedly refuses the Agent's rebuttal on a P0/P1 issue), the Agent relegates the P0/P1 issues to the `tech_debt/` folder to bypass the blockage. The Agent then defers the final decision to the User at the end of the task.
-
----
-
-## Session Resumption & Retry Lifecycle (Orchestrator Paradigm)
-
-To enforce robustness and execution boundaries, the core protocol is wrapped in a Python CLI (`scripts/peer_review.py`) combined with the Agent's cognitive loop (The Orchestrator Paradigm).
-
-### 1. Read-Only Sandbox Security
-The peer reviewer runs under `--sandbox read-only`. Model B has full read access to inspect the codebase, dependencies, and artifacts, but is strictly disallowed from writing or mutating files. Output is isolated via `review.json` generation.
-
-### 2. Contextual Session Resumption & Orchestrator Paradigm
-The Python script (`peer_review.py`) is completely stateless. It does not track attempt counters, create locks, or manage directory persistence across attempts.
-- **Agent as Orchestrator**: The AI Agent manages the attempt limits and session resumption in memory.
-- **Initial Attempt (`Attempt = 1`)**:
-  The script automatically parses the `thread.started` event from Codex's JSONL output and returns the `session_id` in its JSON output to the Agent.
-- **Subsequent Attempts (`Attempt > 1`)**:
-  The Agent passes `--session-id <SESSION_ID>` to the script, allowing Model B to remember prior critique and verify fixes against previously raised issues.
-
-### 3. Strict Validation & Error Handling
-The Python script enforces exact JSON schemas and boundary rules, exiting with specific codes that inform the Primary Agent:
-- **Exit 0 (Approved)**: Output is completely valid and contains no P0/P1 blocking issues. The agent proceeds, treating any P2 issues as optional advice.
-- **Exit 1 (Rejected)**: Validation passes, but P0/P1 blocking issues exist. The agent increments its attempt and retries.
-- **Exit 2 (Fatal Error)**: Codex command fails, or the emitted JSON schema is invalid. Execution halts immediately and is escalated to the user.
+- **Model B (Peer Reviewer Subagent)**:
+  - Spawns as an independent `Model: pro` (Opus) subagent.
+  - Audits the implementation plan directly against workspace files and specifications.
+  - Evaluates architectural blast radius, edge cases, contracts, and testability.
+  - Emits a structured JSON payload:
+    ```json
+    {
+      "status": "completed",
+      "review_status": "approved|rejected",
+      "summary": "Executive summary of review findings",
+      "issues": [
+        {
+          "severity": "P0|P1|P2",
+          "description": "Detailed description of the issue"
+        }
+      ]
+    }
+    ```
+    - **P0 (Critical Blocking)**: Severe architectural flaws, security risks, or breaking contracts. Execution halts.
+    - **P1 (Standard Blocking)**: Functional bugs, missing requirements, or significant edge cases. Execution halts.
+    - **P2 (Non-Blocking Advice)**: Optimization suggestions, style notes, or minor ergonomics. Does not block execution.
 
 ---
 
-## Smoke-Test Verification Matrix
+## Don't Tolerate Problems (Zero Silent Bypasses)
 
-| Scenario | Conditions | Expected State Machine Behavior |
-| :--- | :--- | :--- |
-| **1. First-Pass Approval** | `Attempt = 1`, no P0/P1 issues, exit code 0 | Loop terminates cleanly on Attempt 1. Consensus summary displayed; implementation proceeds automatically. |
-| **2. Multi-Turn Rejection & Resumption** | `Attempt = 1` rejected (has P0/P1); UUID extracted; `Attempt = 2` resumed (no P0/P1) | Attempt 1 logs blocking issues. Session `<SESSION_ID>` is stored by the Agent. Attempt 2 resumes session. Plan is approved and executes automatically. |
-| **3. 5-Attempt Boundary Escalation** | `Attempt = 1..5` all return P0/P1 issues | Rejections handled for attempts 1–4. Upon Attempt 5 rejection (`Attempt >= 5`), the Agent HALTS immediately and prompts user for direction. No code implementation occurs. |
-| **4. Non-Zero CLI Exit / Failure** | Codex crashes or exits with non-zero status | Execution halts closed immediately. Diagnostics logged; no implementation is performed. |
-| **5. Malformed JSON / Missing Thread UUID** | `review.json` missing/corrupted or `thread.started` not found | Fail-closed validation triggers. Execution halts without reading stale output or executing code. |
+Plan-Review strictly adheres to Dalio's second principle: **Don't Tolerate Problems**.
+
+- **No Silent Bypasses**: P0 and P1 blocking issues are **never** relegated to technical debt backlogs or bypass folders.
+- **Explicit Escalation**: If the review deadlocks or reaches the attempt limit (5 attempts), execution immediately halts. The agent escalates the unresolved blocking issues directly to the human user for explicit determination.
+- **Preserved Evidence**: All review artifacts (`review.md`, `review.json`) are preserved as permanent verification evidence and never deleted on success.
 
 ---
 
-## Technical Debt & ADR Context
+## Systematic Root Cause Diagnosis
 
-The `docs/tech_debt/` folder is a directory where the Agent or User can drop individual markdown files documenting known issues, preventing file-lock contention. Codex is hardcoded to read both the `adr/` and `tech_debt/` folders during every review to understand historical context and bypass known technical debt.
-
-**Note**: Both the `docs/adr/` and `docs/tech_debt/` folders are part of version control and are maintained long-term to ensure a persistent history of architectural decisions and known issues.
+When a peer review rejects a plan, the Primary Agent does not apply superficial edits or engage in guess-and-check thrashing:
+- The agent activates `superpowers:systematic-debugging`.
+- Follows the Iron Law: **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST**.
+- Diagnoses the structural breakdown (interface mismatch, requirement omission, blast radius conflict).
+- Formulates a validated hypothesis and updates the plan text with structural precision.
 
 ---
 
-## Code Review Skill & The "Empty Tree" Magic Hash
+## Standardized Plan Design
 
-In addition to planning, the Tribunal protocol powers the `code-review` skill, allowing agents to peer-review their own code implementations before completing a task.
+Implementation plans generated in `implementation_plan.md` adhere strictly to `superpowers:writing-plans`:
+- Standardized header specifying feature goal, architecture, tech stack, and execution sub-skills.
+- Bite-sized tasks (2–5 minutes per step).
+- Concrete file paths (`Create`, `Modify`, `Test`).
+- Explicit interfaces (`Consumes`, `Produces`).
+- Test commands and expected output assertions (TDD flow).
+- Complete code examples with **zero placeholders** (no "TODO", no "TBD").
 
-Because AI agents often work in entirely empty or newly initialized repositories, traditional Git diff commands (like `git diff HEAD`) will fail with fatal errors. 
+---
 
-To solve this, the `code-review` preparation phase intelligently detects unborn repositories and falls back to:
-`git diff 4b825dc642cb6eb9a060e54bf8d69288fbee4904`
+## Push to Results (Execution)
 
-This hardcoded SHA-1 string is Git's **empty tree hash** (the mathematical hash of a directory with zero files). By diffing the current staging area against the empty tree, the protocol can generate perfectly formatted, unified diffs showing every file as a newly added file, completely avoiding fatal branch errors and enabling immediate autonomous peer-review in brand-new repositories.
+1. **Human Approval Gate**: In accordance with `rules/explicit-approval.md` and `rules/reasoning-quality.md`, approval by peer review does **not** trigger automatic execution. The agent must present the approved plan to the human partner and await explicit confirmation ("Proceed", "Execute").
+2. **Subagent-Driven Execution**: Once the user approves, execution is handed off to `superpowers:subagent-driven-development` to dispatch fresh subagents task-by-task with fresh review checkpoints.
+
+---
+
+## Code Review Skill
+
+The companion `code-review` skill performs a single-pass adversarial review on code changes before finalizing a task:
+- **Clean Git Diffing**: Uses clean conditional inspection without error suppression:
+  ```bash
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then git read-tree HEAD; fi
+  ```
+- **Unborn Repository Handling**: Falls back gracefully to Git's empty tree hash (`4b825dc642cb6eb9a060e54bf8d69288fbee4904`) when operating on newly initialized repositories.
+- **Evidence Preservation**: `review.md` is preserved in the repository root as durable verification evidence rather than being discarded.
