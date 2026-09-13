@@ -129,6 +129,8 @@ def test_code_review_skill_conformance():
 
     # Must not use trailing extension in mktemp template on BSD/macOS
     assert "review_XXXXXX.diff" not in content, "Must not use trailing .diff in mktemp placeholder"
+    assert '$(pwd)' not in content, "code-review skill must avoid $(pwd) command substitution"
+    assert 'REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")' in content, "code-review skill must use $PWD for absolute path"
 
     # Two-stage delegation workflow to prevent Attention Guard deadlock
     assert "Stage 1: Generate Diff" in content, "Must define Stage 1 diff generation"

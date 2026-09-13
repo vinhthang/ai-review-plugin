@@ -16,7 +16,7 @@ This skill performs a single-pass adversarial code review using an explicit two-
 - The `flash` subagent runs the diff script using `rtk git` command prefixing per `rules/rtk.md` and a temporary index to preserve the user's working state, with a POSIX signal trap to ensure `GIT_INDEX_FILE` environment variable cleanup (ISSUE-R2-01):
   ```bash
   mkdir -p .code-review
-  REVIEW_TARGET=$(mktemp "$(pwd)/.code-review/review_XXXXXX")
+  REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")
   export GIT_INDEX_FILE=$(mktemp -u)
   trap 'unset GIT_INDEX_FILE; rm -f "$GIT_INDEX_FILE"' EXIT
   if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
