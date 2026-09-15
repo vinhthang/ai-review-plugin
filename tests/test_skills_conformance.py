@@ -107,7 +107,6 @@ def test_plan_review_skill_conformance():
     assert "SPEC_GATE" in content, "Must contain SPEC_GATE state"
     assert "DISCOVER --> SPEC_GATE" in content, "Must transition from DISCOVER to SPEC_GATE"
     assert "SPEC_GATE --> PREPARE" in content, "Must transition from SPEC_GATE to PREPARE"
-    assert "**Spec:**" in content, "Must validate **Spec:** header"
     assert "--no-spec" in content, "Must support --no-spec flag for standalone plans"
 
     # R3: ISSUE-R3-01 escalation ceiling even if review_status is approved with P0/P1

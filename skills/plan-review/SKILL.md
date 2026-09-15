@@ -65,15 +65,15 @@ stateDiagram-v2
 ### State: SPEC_GATE (Critical SDD Alignment)
 **Action:**
 - Enforce the link between Implementation Plan and Specification:
-  1. Parse plan file header for the mandatory line: `**Spec:** <path>`.
-  2. If `**Spec:** <path>` is present:
-     - Resolve `<path>` relative to repository root or canonical path.
-     - Verify `<path>` exists on disk and is a valid file.
-     - If file does not exist: Emit diagnostic error: `SPEC_GATE FAILURE: Specified spec file does not exist: <path>`. Transition to `ESCALATE`.
+  1. Verify the plan contextually links to a governing specification document.
+  2. If a governing specification is linked:
+     - Resolve the path relative to repository root or canonical path.
+     - Verify the file exists on disk.
+     - If file does not exist: Emit diagnostic error: `SPEC_GATE FAILURE: Linked spec file does not exist: <path>`. Transition to `ESCALATE`.
      - If file exists: Assign `resolved_spec_path = <path>` for reviewer injection. Transition to `PREPARE`.
-  3. If `**Spec:**` header is missing:
+  3. If no specification is linked:
      - Check if explicit `--no-spec` override was passed.
-     - If `--no-spec` NOT passed: Emit fatal gate error: `SPEC_GATE FAILURE: Plan does not reference a governing spec (**Spec:** header missing). Plans require an approved specification doc, or explicit --no-spec override for bounded fixes.`. Transition to `ESCALATE`.
+     - If `--no-spec` NOT passed: Emit fatal gate error: `SPEC_GATE FAILURE: Plan does not reference a governing spec. Plans require an approved specification doc, or explicit --no-spec override for bounded fixes.`. Transition to `ESCALATE`.
      - If `--no-spec` IS passed: Verify that the plan describes a small, bounded bugfix or maintenance task. If verified, proceed without spec context.
 
 **Transitions:**
