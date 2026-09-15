@@ -145,7 +145,7 @@ stateDiagram-v2
 ### State: DIAGNOSE (Step 3: Diagnose Root Causes)
 **Action:**
 - Connect with `superpowers:systematic-debugging`.
-- Diagnose structural root causes behind peer reviewer rejection. Document why architectural model permitted vulnerability or omission.
+- Diagnose structural root causes behind peer reviewer rejection. Document why architectural model permitted vulnerability or omission per `rules/spec-standard.md`. Controlled Spec Amendments: if requirements are discovered to be impossible, escalate to user for explicit re-approval.
 
 **Transitions:**
 - -> Transition to `FIX`

@@ -8,14 +8,37 @@ This guide provides a recommended boundary for `spec.md`, reusable agent instruc
 
 **Next step:** Add your feature request, authoritative project references, and approval preferences to the reusable instructions below. Review the resulting draft before authorizing implementation.
 
-## 1. Separate the questions
+## 1. Separate the questions: The 3-Document Feature Triad & Permanent Infrastructure
 
-| Document | Question it answers | Typical contents |
-| --- | --- | --- |
-| Agent instructions | How must the agent work? | Reading order, clarification rules, approval gates, tools and workflow boundaries |
-| `spec.md` | What must be true, for whom, and why? | Scope, behavior, contracts, constraints, acceptance criteria |
-| `plan.md` | How will we satisfy the spec? | Architecture, internal data model, implementation choices, trade-offs, migration approach, test strategy |
-| `tasks.md` | What work will be done, in what order? | Bounded tasks, dependencies, requirement references, completion tracking |
+| Layer / Document | Lifecycle & Velocity | Question it answers | Typical contents |
+| :--- | :--- | :--- | :--- |
+| **Permanent Infrastructure Layer** (`AGENTS.md`, `rules/*.md`, `skills/`) | Standing, versioned with repository. Reusable across all features. | *"What tools, skills, security gates, and invariant reading order do I obey?"* | Tool permissions, sandbox rules, approval gates, review engines, invariant reading order. Never duplicated per feature. |
+| **Feature Doc 1: `spec.md`** | Per-feature. Frozen baseline with controlled amendments. **Rate of change: ZERO**. | *"What must be true, for whom, and why?"* | Scope, non-goals, normative requirements (`REQ-xxx`), acceptance criteria (`AC-xxx`), external contracts, domain rules. |
+| **Feature Doc 2: `plan.md`** | Per-feature. Architectural decisions and trade-offs. **Rate of change: LOW**. | *"How will we satisfy the spec?"* | Architecture, component mapping, internal data flow, migration approach, error handling, trade-offs, test strategy. |
+| **Feature Doc 3: `tasks.md`** | Per-feature. Execution state machine (`- [ ]` -> `- [x]`). **Rate of change: HIGH**. | *"What work will be done, in what order?"* | Bounded tasks, dependencies (`Depends on: T-xxx`), requirement links (`Requirements: REQ-xxx`), verification proof. |
+| **Optional Bookend: `research.md`** | Pre-flight discovery for complex brownfield codebases. | *"What are the existing facts and constraints?"* | Codebase survey, schema reverse-engineering, spike notes, dependency audits. |
+| **Optional Bookend: `walkthrough.md`** | Post-flight delivery evidence and sign-off. | *"What was built and what automated proof passed?"* | Test execution output, before/after diff summary, screenshots, rollout sign-off. |
+
+### The "Differential Rate of Change" Law
+`plan.md` and `tasks.md` MUST remain separate documents:
+- Design decisions and execution state mutate at fundamentally different velocities.
+- Combining them causes continuous checkbox ticks (`- [ ]` -> `- [x]`) to rewrite and pollute the architectural blueprint.
+- Keeping them separate prevents context churn and stops agents from mistaking an operational task for a product requirement.
+
+### Document Authority Matrix
+| Concern | Authoritative Location |
+| :--- | :--- |
+| Security gates, tool permissions, execution rules | Permanent Infrastructure (`AGENTS.md`) |
+| Observable behavior, business rules, external contracts | `spec.md` |
+| Technical architecture, data flow, component design | `plan.md` |
+| Work queue, dependencies, verification evidence | `tasks.md` |
+
+*Conflict Invariant*: Any conflict between documents triggers human escalation; never assume "the most recently read document wins."
+
+### Full Requirement Traceability Graph
+```text
+spec.md (REQ-xxx) -> plan.md (Design for REQ-xxx) -> tasks.md (T-xxx -> REQ-xxx) -> code & tests
+```
 
 These filenames are a recommended convention, not a universal standard. For a small change, distinct sections in one file may be enough. For an existing repository, respect its established document structure.
 
@@ -64,7 +87,9 @@ Prefer a reference to the canonical schema or contract instead of copying it. In
 
 Avoid boilerplate that contributes no decision or verification value. Empty sections do not make a spec complete.
 
-## 4. Copy-paste agent instructions
+## 4. Standing Agent Infrastructure (AGENTS.md & Permanent Rules)
+
+Place these reusable governance instructions directly into your permanent `AGENTS.md` or repository rules—never create a 4th per-feature markdown file for them (prevents instruction drift):
 
 ```text
 You are drafting a feature specification for spec-driven development.

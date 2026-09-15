@@ -4,7 +4,7 @@ description: An on-demand skill that implements the Autonomous Multi-Model Plann
 ---
 # Plan-Review Protocol
 
-The `plan-review` skill evaluates an implementation plan against its governing specification, actionable task scoping, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
+The `plan-review` skill evaluates an implementation plan within the 3-Document Feature Triad (spec.md, plan.md, tasks.md) against its governing specification, requirement traceability, actionable task scoping, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
 
 ```mermaid
 stateDiagram-v2
@@ -83,7 +83,11 @@ stateDiagram-v2
 ### State: PREPARE
 **Action:**
 - Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter = 0` is reset to prevent post-escalation deadlocks.
-- **Contract Anchoring & Golden Guardrail (`rules/spec-standard.md`)**:
+- **3-Document Triad, Document Authority & Rate of Change (`rules/spec-standard.md`)**:
+  - `plan.md` and `tasks.md` remain separate files: design decisions and execution state mutate at different velocities.
+  - Implementation plans MUST reference external schemas, DDL, and contracts defined in the governing spec (`spec.md`) rather than duplicating or modifying them.
+  - Tasks must declare explicit traceability (`Requirements: REQ-xxx`) and dependencies (`Depends on: T-xxx`).
+  - Verify Golden Guardrail: Do NOT convert implementation preferences or assumptions into ungrounded product requirements.
   - Implementation plans MUST reference external schemas, DDL, and contracts defined in the governing spec rather than duplicating or modifying them.
   - Verify Golden Guardrail: Do NOT convert implementation preferences or assumptions into ungrounded product requirements.
 - **Strict Format Standardization**: Adhere strictly to the format defined in `superpowers:writing-plans`:
