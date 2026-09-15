@@ -8,7 +8,7 @@ The `spec-review` skill conducts an adversarial architectural peer review of a d
 
 ## Alignment with Core Principles
 
-- **Step 1: Set Clear Goals**: Connects with `superpowers:brainstorming`. Architectural specifications capture WHAT and WHY, without premature task sequencing or implementation checklists.
+- **Step 1: Set Clear Goals**: Connects with `superpowers:brainstorming`. Architectural specifications capture WHAT and WHY per `rules/spec-standard.md`, without premature task sequencing or implementation checklists.
 - **Step 2: Identify and Don't Tolerate Problems**: Independent peer review loops attack specifications. P0/P1 defects are blockers. Bypassing issues is strictly prohibited (no backlog relegation).
 - **Step 3: Diagnose Root Causes**: Connects with `superpowers:systematic-debugging`. When review rejects a document, the agent investigates structural root causes before proposing modifications.
 - **Step 4: Design Plans**: Once the specification is approved, transitions cleanly to `superpowers:writing-plans`.
@@ -73,12 +73,13 @@ stateDiagram-v2
 
 ### State: PREPARE
 **Action:**
-- Pre-flight format validation. Read target spec file and verify structural integrity:
+- Pre-flight format validation. Read target spec file and verify structural integrity per `rules/spec-standard.md`:
   1. Title header `# [Topic] Specification` or `# [Topic] Design` or `# [Topic] Architecture`
   2. Required metadata: `Date`, `Status`, `Authors`
   3. Required sections: `Context & Motivation`, `Architecture & System Model`, `Component & Interface Contracts`, `Error Handling & Failure Modes`, `Verification & Testing`
   4. Absence of implementation checkboxes (`- [ ]`) or task execution steps
   5. Zero placeholders: Scan for `TODO`, `TBD`, `WIP`, or ellipsis (`...`) in place of logic
+  6. External Contracts vs Internal Mechanisms: External schemas (DDL, JSON/YAML, OpenAPI), normative requirements (`REQ-xxx` <-> `AC-xxx`), and invariants are authoritative; internal implementation code or helper scripts (> 5 lines) are strictly prohibited.
 - Upon entering from `ESCALATE`, ensure `self_review_counter = 0` is reset.
 
 **Transitions:**
@@ -102,7 +103,7 @@ stateDiagram-v2
 - Increment `attempt_counter`.
 - Turn 1: Dispatch Peer Reviewer subagent using:
   `rtk python3 scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo . --output-file review.json`
-  Reviewer evaluates spec criteria and outputs structured payload to `review.json`:
+  Reviewer evaluates spec criteria using the 8-Question Build-Ready Check (`rules/spec-standard.md`) and outputs structured payload to `review.json`:
   ```json
   {
     "status": "completed",

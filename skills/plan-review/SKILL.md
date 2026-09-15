@@ -52,7 +52,7 @@ stateDiagram-v2
 
 ### State: DISCOVER
 **Action:**
-- Connects with `superpowers:brainstorming` (Step 1: Set Clear Goals). Ensure architectural goals were clarified and specifications approved prior to planning.
+- Connects with `superpowers:brainstorming` (Step 1: Set Clear Goals). Ensure architectural goals were clarified and specifications approved per `rules/spec-standard.md` prior to planning.
 - Resolve plan target using Plan Resolution Hierarchy:
   1. Priority 1 (Explicit Argument): `$1` if provided.
   2. Priority 2 (Root Implementation Plan): `./implementation_plan.md` in repository root.
@@ -83,6 +83,9 @@ stateDiagram-v2
 ### State: PREPARE
 **Action:**
 - Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter = 0` is reset to prevent post-escalation deadlocks.
+- **Contract Anchoring & Golden Guardrail (`rules/spec-standard.md`)**:
+  - Implementation plans MUST reference external schemas, DDL, and contracts defined in the governing spec rather than duplicating or modifying them.
+  - Verify Golden Guardrail: Do NOT convert implementation preferences or assumptions into ungrounded product requirements.
 - **Strict Format Standardization**: Adhere strictly to the format defined in `superpowers:writing-plans`:
   - Standard plan header:
     ```markdown
