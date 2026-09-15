@@ -49,6 +49,8 @@ This skill performs a single-pass adversarial code review using an explicit two-
 ### Stage 2: Adversarial Peer Review (Pro Subagent)
 - Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
 - Use `invoke_subagent` with `Model: pro` to spawn a Peer Reviewer subagent to conduct the adversarial review on that diff.
+- Execute adversarial review via peer review CLI:
+  `rtk python3 scripts/peer_review.py --mode code --repo . --output-file review.json`
 - Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
 - Instruct the reviewer to apply the `superpowers` rule and output findings as a structured JSON payload:
   ```json

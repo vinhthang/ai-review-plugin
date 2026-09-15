@@ -101,7 +101,7 @@ stateDiagram-v2
 **Action:**
 - Increment `attempt_counter`.
 - Turn 1: Dispatch Peer Reviewer subagent using:
-  `scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo .`
+  `rtk python3 scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo . --output-file review.json`
   Reviewer evaluates spec criteria and outputs structured payload to `review.json`:
   ```json
   {

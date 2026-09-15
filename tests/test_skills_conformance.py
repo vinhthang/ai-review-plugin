@@ -57,6 +57,8 @@ def test_spec_review_skill_conformance():
 
     # Review command
     assert "--mode spec" in content, "Must use --mode spec in reviewer dispatch"
+    assert "--output-file review.json" in content, "Must document --output-file review.json"
+    assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
 
 def test_plan_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "plan-review", "SKILL.md")
@@ -97,6 +99,10 @@ def test_plan_review_skill_conformance():
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
+    # Review command and output persistence
+    assert "--output-file review.json" in content, "Must document --output-file review.json"
+    assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
+
     # R3: SPEC_GATE conformance
     assert "SPEC_GATE" in content, "Must contain SPEC_GATE state"
     assert "DISCOVER --> SPEC_GATE" in content, "Must transition from DISCOVER to SPEC_GATE"
@@ -133,6 +139,8 @@ def test_code_review_skill_conformance():
     assert 'REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")' in content, "code-review skill must use $PWD for absolute path"
 
     # Two-stage delegation workflow to prevent Attention Guard deadlock
+    assert "--output-file review.json" in content, "Must document --output-file review.json"
+    assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
     assert "Stage 1: Generate Diff" in content, "Must define Stage 1 diff generation"
     assert "Stage 2: Adversarial Peer Review" in content, "Must define Stage 2 adversarial review"
     assert "Model: flash" in content, "Stage 1 must use flash subagent"

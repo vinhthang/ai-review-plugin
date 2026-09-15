@@ -121,7 +121,7 @@ stateDiagram-v2
 ### State: REVIEW
 **Action:**
 - Increment your internal `attempt_counter`.
-- Turn 1: Dispatch Peer Reviewer subagent using `scripts/peer_review.py --mode plan --target <plan_path> --repo <repo_path>` along with `--spec <resolved_spec_path>` (if spec exists) or `--no-spec`.
+- Turn 1: Dispatch Peer Reviewer subagent using `rtk python3 scripts/peer_review.py --mode plan --target <plan_path> --repo <repo_path> --output-file review.json` along with `--spec <resolved_spec_path>` (if spec exists) or `--no-spec`.
 - Pass instructions to evaluate the plan against the `superpowers` rule and return a structured JSON subagent payload:
   ```json
   {
