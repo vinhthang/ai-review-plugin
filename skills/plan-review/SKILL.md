@@ -4,7 +4,7 @@ description: An on-demand skill that implements the Autonomous Multi-Model Plann
 ---
 # Plan-Review Protocol
 
-The `plan-review` skill evaluates an implementation plan against its governing specification, task right-sizing, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
+The `plan-review` skill evaluates an implementation plan against its governing specification, actionable task scoping, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
 
 ```mermaid
 stateDiagram-v2
@@ -98,7 +98,7 @@ stateDiagram-v2
     **Tech Stack:** [Key technologies/libraries]
     **Spec:** [Path to approved spec file, or none (bounded fix)]
     ```
-  - Task right-sizing: 2–5 minute bite-sized tasks (`- [ ] Step 1: ...`, etc.).
+  - Actionable task scoping: Clearly bounded operational tasks with state tracking (`- [ ] Step 1: ...`, etc.), accommodating environment setup, migrations, and integration suites.
   - Exact file paths (`Create: exact/path`, `Modify: exact/path:line`, `Test: exact/path`).
   - Explicit interface contracts (Consumes / Produces).
   - Explicit test commands and expected outputs (`Run: rtk pytest ...`, `Expected: PASS`).

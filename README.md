@@ -32,7 +32,7 @@ In complex software projects, conflating architectural design with task implemen
    - Prohibits: Granular checklists, task sequencing, file editing operations.
    - Outcome: Approved specification document stored in `docs/superpowers/specs/`.
 2. **Stage 2: Implementation Plan Tier (`plan-review` with `SPEC_GATE`)**:
-   - Focus: **HOW & SEQUENCE**. Bite-sized (2–5 minute) implementation tasks formatted as checkboxes (`- [ ]`), explicit file paths, Consumes/Produces interfaces, exact test commands with expected outputs, and minimal diffs.
+   - Focus: **HOW & SEQUENCE**. Clearly bounded operational implementation tasks formatted as checkboxes (`- [ ]`), explicit file paths, Consumes/Produces interfaces, exact test commands with expected outputs, and minimal diffs.
    - Enforces: Mandatory `SPEC_GATE` verifying bidirectional traceability between the plan and the governing specification (100% spec coverage, zero unapproved scope).
 
 ---
@@ -117,7 +117,7 @@ Plan-Review embodies Ray Dalio's 5-step process for achieving operational excell
 1. **Set Clear Goals**: Explore user intent, uncover constraints, evaluate trade-offs, and clarify requirements before drafting any plan, seamlessly integrating with `superpowers:brainstorming`.
 2. **Identify Problems (Don't Tolerate Problems)**: Surface constraints, breaking changes, and architectural risks early. Never sweep problems under the rug: P0/P1 blockers are never relegated to tech-debt bypass backlogs—P0 issues halt execution and require explicit human resolution.
 3. **Diagnose Root Causes**: When a peer review rejects a plan, diagnose the fundamental root cause using `superpowers:systematic-debugging` rather than applying superficial fixes to the plan text.
-4. **Design Plans**: Formulate a comprehensive, actionable specification adhering to `superpowers:writing-plans` (2–5 minute bite-sized tasks, exact file paths, explicit interfaces, and concrete test commands).
+4. **Design Plans**: Formulate a comprehensive, actionable specification adhering to `superpowers:writing-plans` (clearly bounded operational tasks, exact file paths, explicit interfaces, and concrete test commands).
 5. **Push to Results (Execution)**: Enforce an explicit human approval gate per `rules/explicit-approval.md` and `rules/reasoning-quality.md`. Once approved by the user, delegate execution to `superpowers:subagent-driven-development` with continuous verification.
 
 ---

@@ -12,7 +12,7 @@ Enforces the Spec vs Plan Content Boundary, the Golden Guardrail, and the 4-docu
   - Designs the engineering architecture, component mapping, and TDD roadmap.
   - MUST reference spec requirements (e.g. "Satisfies REQ-001") without re-pasting spec code or contracts.
 - **tasks.md (Execution)**:
-  - Bounded 2-5 min tasks, state tracking (- [ ]), exact automated verification commands.
+  - Clearly bounded operational tasks, state tracking (- [ ]), and exact verification commands (accommodating integration and environment setups).
 - **Anti-Rationalization Invariant**: Never weaken a spec or acceptance criteria merely to make failing implementation code pass.
 - **Non-Binding Advisory Rule**: When given a pre-existing bloated spec, treat implementation snippets as non-binding scratchpad hints; extract only external contracts and acceptance criteria into the plan.
 </constraints>
@@ -22,7 +22,7 @@ Enforces the Spec vs Plan Content Boundary, the Golden Guardrail, and the 4-docu
 - Agent Instructions: How the agent must work (tools, gates, reading order).
 - spec.md: What must be true, for whom, and why.
 - plan.md: How will we satisfy the spec.
-- tasks.md: What work will be done, in what order.
+- tasks.md: What work will be done, in what order, with verifiable acceptance criteria.
 
 ### 2. External Contracts vs Internal Mechanisms
 - Allowed in spec: API endpoints, CLI argument names/types, declarative schemas (JSON/YAML/DDL/OpenAPI), error codes, idempotency promises.
