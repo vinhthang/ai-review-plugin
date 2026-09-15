@@ -74,12 +74,11 @@ stateDiagram-v2
 ### State: PREPARE
 **Action:**
 - Pre-flight format validation. Read target spec file and verify structural integrity per `rules/spec-standard.md`:
-  1. Title header `# [Topic] Specification` or `# [Topic] Design` or `# [Topic] Architecture`
-  2. Required metadata: `Date`, `Status`, `Authors`
-  3. Required sections: `Context & Motivation`, `Architecture & System Model`, `Component & Interface Contracts`, `Error Handling & Failure Modes`, `Verification & Testing`
-  4. Absence of implementation checkboxes (`- [ ]`) or task execution steps
-  5. Zero placeholders: Scan for `TODO`, `TBD`, `WIP`, or ellipsis (`...`) in place of logic
-  6. External Contracts vs Internal Mechanisms: External schemas (DDL, JSON/YAML, OpenAPI), normative requirements (`REQ-xxx` <-> `AC-xxx`), and invariants are authoritative; internal implementation code or helper scripts (> 5 lines) are strictly prohibited.
+  1. Clear title, context, and problem statement (what does NOT change)
+  2. Normative requirements with stable identifiers (`REQ-xxx`) and linked acceptance criteria (`AC-xxx`)
+  3. Absence of implementation checkboxes (`- [ ]`) or task execution steps (which belong in `tasks.md`)
+  4. Resolution of blocking decisions: No unflagged ambiguity or unaddressed blockers
+  5. External Contracts vs Internal Mechanisms: External schemas (DDL, JSON/YAML, OpenAPI), normative requirements, and invariants are authoritative; focus is on observable behavior and contracts rather than premature internal production implementation.
 - Upon entering from `ESCALATE`, ensure `self_review_counter = 0` is reset.
 
 **Transitions:**

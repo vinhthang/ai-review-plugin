@@ -1391,5 +1391,5 @@ def test_spec_mode_prompt_includes_build_ready_check(mock_run, target_and_repo):
     assert "Evaluate against the Build-Ready Specification Standard" in prompt
     assert "1. Consequential ambiguity" in prompt
     assert "2. Testable pass/fail" in prompt
-    assert "ZERO internal function bodies or procedural code leaks" in prompt
+    assert "clear separation of observable contracts from internal implementation details" in prompt
 

@@ -13,15 +13,15 @@ This guide provides a recommended boundary for `spec.md`, reusable agent instruc
 | Layer / Document | Lifecycle & Velocity | Question it answers | Typical contents |
 | :--- | :--- | :--- | :--- |
 | **Permanent Infrastructure Layer** (`AGENTS.md`, `rules/*.md`, `skills/`) | Standing, versioned with repository. Reusable across all features. | *"What tools, skills, security gates, and invariant reading order do I obey?"* | Tool permissions, sandbox rules, approval gates, review engines, invariant reading order. Never duplicated per feature. |
-| **Feature Doc 1: `spec.md`** | Per-feature. Frozen baseline with controlled amendments. **Rate of change: ZERO**. | *"What must be true, for whom, and why?"* | Scope, non-goals, normative requirements (`REQ-xxx`), acceptance criteria (`AC-xxx`), external contracts, domain rules. |
-| **Feature Doc 2: `plan.md`** | Per-feature. Architectural decisions and trade-offs. **Rate of change: LOW**. | *"How will we satisfy the spec?"* | Architecture, component mapping, internal data flow, migration approach, error handling, trade-offs, test strategy. |
-| **Feature Doc 3: `tasks.md`** | Per-feature. Execution state machine (`- [ ]` -> `- [x]`). **Rate of change: HIGH**. | *"What work will be done, in what order?"* | Bounded tasks, dependencies (`Depends on: T-xxx`), requirement links (`Requirements: REQ-xxx`), verification proof. |
+| **Feature Doc 1: `spec.md`** | **What does NOT change** (Agreed human contract). Stable baseline with controlled amendments. | *"What must be true, for whom, and why?"* | Scope, non-goals, normative requirements (`REQ-xxx`), acceptance criteria (`AC-xxx`), external contracts, domain rules. |
+| **Feature Doc 2: `plan.md`** | **What changes on architectural discovery** (Technical blueprint). | *"How will we satisfy the spec?"* | Architecture, component mapping, internal data flow, migration approach, error handling, trade-offs, test strategy. |
+| **Feature Doc 3: `tasks.md`** | **What changes continuously** (Dynamic workboard and execution state machine). | *"What work will be done, in what order?"* | Bounded tasks, dependencies (`Depends on: T-xxx`), requirement links (`Requirements: REQ-xxx`), verification proof. |
 | **Optional Bookend: `research.md`** | Pre-flight discovery for complex brownfield codebases. | *"What are the existing facts and constraints?"* | Codebase survey, schema reverse-engineering, spike notes, dependency audits. |
 | **Optional Bookend: `walkthrough.md`** | Post-flight delivery evidence and sign-off. | *"What was built and what automated proof passed?"* | Test execution output, before/after diff summary, screenshots, rollout sign-off. |
 
 ### The "Differential Rate of Change" Law
 `plan.md` and `tasks.md` MUST remain separate documents:
-- Design decisions and execution state mutate at fundamentally different velocities.
+- Design decisions and execution state mutate at fundamentally different cadences: what does not change vs. what changes on technical discovery vs. what changes continuously.
 - Combining them causes continuous checkbox ticks (`- [ ]` -> `- [x]`) to rewrite and pollute the architectural blueprint.
 - Keeping them separate prevents context churn and stops agents from mistaking an operational task for a product requirement.
 
