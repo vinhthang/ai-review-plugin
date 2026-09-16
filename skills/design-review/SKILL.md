@@ -1,10 +1,10 @@
 ---
-name: plan-review
+name: design-review
 description: An on-demand skill that implements the Autonomous Multi-Model Planning Protocol aligned with Ray Dalio's 5-Step Process and Superpowers Engineering Philosophy.
 ---
-# Plan-Review Protocol
+# Design-Review Protocol
 
-The `plan-review` skill evaluates an implementation plan within the 3-Document Feature Triad (spec.md, plan.md, tasks.md) against its governing specification, requirement traceability, actionable task scoping, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
+The `plan-review` skill evaluates an implementation plan within the 5-File Architecture (spec.md, design.md, tasks.md) against its governing specification, requirement traceability, actionable task scoping, and TDD rigor. It operationalizes Ray Dalio's 5-Step Process and connects with `superpowers:brainstorming`, `superpowers:writing-plans`, and `superpowers:subagent-driven-development`.
 
 ```mermaid
 stateDiagram-v2
@@ -55,7 +55,7 @@ stateDiagram-v2
 - Connects with `superpowers:brainstorming` (Step 1: Set Clear Goals). Ensure architectural goals were clarified and specifications approved per `rules/spec-standard.md` prior to planning.
 - Resolve plan target using Plan Resolution Hierarchy:
   1. Priority 1 (Explicit Argument): `$1` if provided.
-  2. Priority 2 (Root Implementation Plan): `./implementation_plan.md` in repository root.
+  2. Priority 2 (Root Design Blueprint): `./implementation_design.md` in repository root.
   3. Priority 3 (Latest in Archive): Newest file in `docs/superpowers/plans/*.md`.
 
 **Transitions:**
@@ -64,7 +64,7 @@ stateDiagram-v2
 
 ### State: SPEC_GATE (Critical SDD Alignment)
 **Action:**
-- Enforce the link between Implementation Plan and Specification:
+- Enforce the link between Design Blueprint and Specification:
   1. Verify the plan contextually links to a governing specification document.
   2. If a governing specification is linked:
      - Resolve the path relative to repository root or canonical path.
@@ -84,7 +84,7 @@ stateDiagram-v2
 **Action:**
 - Upon entering from `ESCALATE` (user resolution), ensure `self_review_counter = 0` is reset to prevent post-escalation deadlocks.
 - **3-Document Triad, Document Authority & Rate of Change (`rules/spec-standard.md`)**:
-  - `plan.md` and `tasks.md` remain separate files: design decisions and execution state mutate at different velocities.
+  - `design.md` and `tasks.md` remain separate files: design decisions and execution state mutate at different velocities.
   - Implementation plans MUST reference external schemas, DDL, and contracts defined in the governing spec (`spec.md`) rather than duplicating or modifying them.
   - Tasks must declare explicit traceability (`Requirements: REQ-xxx`) and dependencies (`Depends on: T-xxx`).
   - Verify Golden Guardrail: Do NOT convert implementation preferences or assumptions into ungrounded product requirements.
@@ -93,7 +93,7 @@ stateDiagram-v2
 - **Strict Format Standardization**: Adhere strictly to the format defined in `superpowers:writing-plans`:
   - Standard plan header:
     ```markdown
-    # [Feature Name] Implementation Plan
+    # [Feature Name] Design Blueprint
 
     > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -116,7 +116,7 @@ stateDiagram-v2
 ### State: SELF_REVIEW
 **Action:**
 - You are acting as a Pre-Reviewer.
-- Read the contents of `implementation_plan.md`. Evaluate if the plan revisions address prior findings without regressions.
+- Read the contents of `implementation_design.md`. Evaluate if the plan revisions address prior findings without regressions.
 - Compare the changes against the P0/P1 issues that the Peer Reviewer raised in the previous iteration.
 - Increment `self_review_counter`.
 
@@ -128,7 +128,7 @@ stateDiagram-v2
 ### State: REVIEW
 **Action:**
 - Increment your internal `attempt_counter`.
-- Turn 1: Dispatch Peer Reviewer subagent using `rtk python3 scripts/peer_review.py --mode plan --target <plan_path> --repo <repo_path> --output-file review.json` along with `--spec <resolved_spec_path>` (if spec exists) or `--no-spec`.
+- Turn 1: Dispatch Peer Reviewer subagent using `rtk python3 scripts/peer_review.py --mode design --target <plan_path> --repo <repo_path> --output-file review.json` along with `--spec <resolved_spec_path>` (if spec exists) or `--no-spec`.
 - Pass instructions to evaluate the plan against the `superpowers` rule and return a structured JSON subagent payload:
   ```json
   {
@@ -183,8 +183,8 @@ stateDiagram-v2
 
 ### State: FIX
 **Action:**
-- Modify `implementation_plan.md` in-place according to the diagnosed root cause.
-- Overwrite `implementation_plan.md` with the updated bite-sized tasks, precise test commands, and interface definitions.
+- Modify `implementation_design.md` in-place according to the diagnosed root cause.
+- Overwrite `implementation_design.md` with the updated bite-sized tasks, precise test commands, and interface definitions.
 
 **Transitions:**
 - -> Transition to `SELF_REVIEW`
@@ -213,7 +213,7 @@ stateDiagram-v2
 **Action:**
 - Plan is approved by Peer Review (`review_status == "approved"`).
 - **Enforce Explicit Approval**: Per `rules/explicit-approval.md` and `rules/reasoning-quality.md`, NEVER automatically execute the plan.
-- Present `implementation_plan.md` to the user and request explicit confirmation to execute:
+- Present `implementation_design.md` to the user and request explicit confirmation to execute:
   "Plan approved by peer review. Would you like me to proceed with execution using superpowers:subagent-driven-development?"
 - Stop your turn and wait for the user to explicitly greenlight execution ("Proceed", "Execute", or user confirmation).
 
@@ -223,7 +223,7 @@ stateDiagram-v2
 
 ### State: EXECUTE (Step 5: Push to Results via Subagents)
 **Action:**
-- Retain `implementation_plan.md` and `review.json`.
+- Retain `implementation_design.md` and `review.json`.
 - Delegate execution to `superpowers:subagent-driven-development`.
 - Dispatch fresh subagents per task, conduct task-level reviews, and push through each bite-sized step with continuous verification.
 
@@ -233,7 +233,7 @@ stateDiagram-v2
 ### State: DONE
 **Action:**
 - Terminate any running peer reviewer subagents using `manage_subagents`.
-- Preserve `implementation_plan.md`, `review.json`, and verification records.
+- Preserve `implementation_design.md`, `review.json`, and verification records.
 - Compile final Architecture Decision Record in `docs/adr/` if applicable.
 
 **Transitions:**

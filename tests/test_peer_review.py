@@ -73,7 +73,7 @@ def test_initial_state_and_success(mock_run, target_and_repo, capsys):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         
@@ -113,7 +113,7 @@ def test_rejection(mock_run, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 1
@@ -144,7 +144,7 @@ def test_missing_schema_or_review_json(mock_run, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
@@ -181,7 +181,7 @@ def test_resume_session(mock_run, target_and_repo, capsys):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec", "--session-id", "resume_session_id"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec", "--session-id", "resume_session_id"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
@@ -266,7 +266,7 @@ def test_peer_review_prompt_has_adr_and_no_tech_debt(mock_run, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
@@ -302,7 +302,7 @@ def test_peer_review_with_message(mock_run, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec", "--message", "rebuttal explaining design"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec", "--message", "rebuttal explaining design"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
@@ -335,7 +335,7 @@ def test_peer_review_non_json_stdout_lines(mock_run, target_and_repo, capsys):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
@@ -376,7 +376,7 @@ def test_peer_review_timeout_handling(mock_killpg, mock_run, target_and_repo, ca
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
@@ -412,7 +412,7 @@ def test_peer_review_corrupt_review_json(mock_run, target_and_repo, capsys):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
@@ -500,7 +500,7 @@ def test_mode_spec_rejection(mock_run, target_and_repo):
         assert e.value.code == 1
 
 @patch("peer_review.subprocess.Popen")
-def test_mode_plan_with_valid_spec(mock_run, target_and_repo, spec_file):
+def test_mode_design_with_valid_spec(mock_run, target_and_repo, spec_file):
     target, repo = target_and_repo
     
     def side_effect(cmd, **kwargs):
@@ -527,7 +527,7 @@ def test_mode_plan_with_valid_spec(mock_run, target_and_repo, spec_file):
         with open(review_file, 'w', encoding="utf-8") as f:
             json.dump({"issues": []}, f)
         with open(os.path.join(work_dir, "stdout.log"), 'w', encoding="utf-8") as f:
-            f.write('{"type": "thread.started", "thread_id": "plan_spec_session"}\n')
+            f.write('{"type": "thread.started", "thread_id": "design_spec_session"}\n')
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate.return_value = (b"", b"")
@@ -535,33 +535,33 @@ def test_mode_plan_with_valid_spec(mock_run, target_and_repo, spec_file):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--spec", spec_file]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--spec", spec_file]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
 
-def test_mode_plan_with_missing_spec_file_exits_2(target_and_repo, capsys):
+def test_mode_design_with_missing_spec_file_exits_2(target_and_repo, capsys):
     target, repo = target_and_repo
     nonexistent = "/nonexistent/path/to/spec.md"
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--spec", nonexistent]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--spec", nonexistent]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
         captured = capsys.readouterr()
         assert f"Fatal: spec file does not exist: {nonexistent}" in captured.err
 
-def test_mode_plan_missing_spec_and_no_spec_exits_2(target_and_repo, capsys):
+def test_mode_design_missing_spec_and_no_spec_exits_2(target_and_repo, capsys):
     target, repo = target_and_repo
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
         captured = capsys.readouterr()
-        assert "Fatal: --mode plan requires either --spec <path> or --no-spec." in captured.err
+        assert "Fatal: --mode design requires either --spec <path> or --no-spec." in captured.err
 
 def test_spec_and_no_spec_mutual_exclusion_exits_2(target_and_repo, spec_file, capsys):
     target, repo = target_and_repo
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--spec", spec_file, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--spec", spec_file, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
@@ -639,7 +639,7 @@ def test_process_poll_check_on_timeout(mock_killpg, mock_run, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 2
@@ -696,14 +696,14 @@ def test_shutil_copytree_fallback(mock_run, mock_which, target_and_repo):
 
     mock_run.side_effect = side_effect
 
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as e:
             peer_review.main()
         assert e.value.code == 0
 
 
 @patch("peer_review.subprocess.Popen")
-def test_plan_mode_prompt_target_wording(mock_run, target_and_repo):
+def test_design_mode_prompt_target_wording(mock_run, target_and_repo):
     target, repo = target_and_repo
     def side_effect(cmd, **kwargs):
         if isinstance(cmd, list) and cmd and cmd[0] == "codex":
@@ -719,7 +719,7 @@ def test_plan_mode_prompt_target_wording(mock_run, target_and_repo):
         proc.__enter__.return_value = proc
         return proc
     mock_run.side_effect = side_effect
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit) as exc_info:
             peer_review.main()
         assert exc_info.value.code == 0
@@ -751,14 +751,14 @@ def test_prompt_specs_context_conditional(mock_run, target_and_repo, spec_file):
     mock_run.side_effect = side_effect
     
     # Test 1: plan mode with --spec includes specs directory
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--spec", spec_file]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--spec", spec_file]):
         with pytest.raises(SystemExit):
             peer_review.main()
     prompt_with_spec = mock_run.call_args[0][0][-1]
     assert "docs/superpowers/specs/" in prompt_with_spec
     
     # Test 2: plan mode with --no-spec excludes specs directory
-    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+    with patch("sys.argv", ["peer_review.py", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
         with pytest.raises(SystemExit):
             peer_review.main()
     prompt_no_spec = mock_run.call_args[0][0][-1]
@@ -822,7 +822,7 @@ def test_mode_code_valid_execution(mock_run, target_and_repo, capsys):
     assert "Perform a code review of this file:" in prompt
     assert "Focus on code-level issues, logic, and correctness." in prompt
     assert "Governing Specification:" not in prompt
-    assert "Standalone Plan Review:" not in prompt
+    assert "Standalone Design Review:" not in prompt
     
     # Verify diff content was preserved in target copy
     assert len(captured_copied_target) == 1
@@ -1043,7 +1043,7 @@ def test_workbuddy_full_execution_pass(mock_popen, target_and_repo, capsys):
     mock_popen.side_effect = side_effect
 
     with patch("peer_review.WorkBuddyAdapter.resolve_binary", return_value=["node", "/mock/codebuddy"]):
-        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec", "--model", "deepseek 4.1 flash"]):
+        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "design", "--repo", repo, "--no-spec", "--model", "deepseek 4.1 flash"]):
             with pytest.raises(SystemExit) as exc:
                 peer_review.main()
             assert exc.value.code == 0
@@ -1087,7 +1087,7 @@ def test_workbuddy_full_execution_rejection(mock_popen, target_and_repo, capsys)
     mock_popen.side_effect = side_effect
 
     with patch("peer_review.WorkBuddyAdapter.resolve_binary", return_value=["node", "/mock/codebuddy"]):
-        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
             with pytest.raises(SystemExit) as exc:
                 peer_review.main()
             assert exc.value.code == 1
@@ -1141,7 +1141,7 @@ def test_workbuddy_full_execution_with_extra_properties(mock_popen, target_and_r
     mock_popen.side_effect = side_effect
 
     with patch("peer_review.WorkBuddyAdapter.resolve_binary", return_value=["node", "/mock/codebuddy"]):
-        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "plan", "--repo", repo, "--no-spec"]):
+        with patch("sys.argv", ["peer_review.py", "--engine", "workbuddy", "--target", target, "--mode", "design", "--repo", repo, "--no-spec"]):
             with pytest.raises(SystemExit) as exc:
                 peer_review.main()
             assert exc.value.code == 1
@@ -1303,11 +1303,11 @@ def test_diagnostic_context_embedding(mock_popen, mock_resolve_bin, target_and_r
         peer_review.main(["peer_review.py", "--mode", "spec", "--target", str(target), "--repo", str(repo), "--diagnostic-context", str(diag_file)])
     assert exc.value.code == 2
     err = capsys.readouterr().err
-    assert "Error: --diagnostic-context is only valid in --mode plan or --mode code." in err
+    assert "Error: --diagnostic-context is only valid in --mode design or --mode code." in err
 
     # 2. Missing diagnostic file rejection (requires --no-spec in plan mode)
     with pytest.raises(SystemExit) as exc:
-        peer_review.main(["peer_review.py", "--mode", "plan", "--target", str(target), "--repo", str(repo), "--no-spec", "--diagnostic-context", str(tmp_path / "nonexistent.txt")])
+        peer_review.main(["peer_review.py", "--mode", "design", "--target", str(target), "--repo", str(repo), "--no-spec", "--diagnostic-context", str(tmp_path / "nonexistent.txt")])
     assert exc.value.code == 2
     err = capsys.readouterr().err
     assert "Diagnostic context file not found" in err
@@ -1338,7 +1338,7 @@ def test_diagnostic_context_embedding(mock_popen, mock_resolve_bin, target_and_r
         peer_review.main([
             "peer_review.py",
             "--engine", "workbuddy",
-            "--mode", "plan",
+            "--mode", "design",
             "--target", str(target),
             "--repo", str(repo),
             "--no-spec",

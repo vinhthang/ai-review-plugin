@@ -1,50 +1,26 @@
 <rule name="spec-standard">
 <description>
-Enforces the 3-Document Feature Triad (spec.md, plan.md, tasks.md), the Permanent Infrastructure Layer, the Document Authority Matrix, and the Golden Guardrail under Ray Dalio's 5-Step Process.
+Enforces the 5-Document Architecture for strict lifecycle separation, precedence order, and requirement ID tracking.
 </description>
 
 <constraints>
-- **The Golden Guardrail**: Do not turn an assumption into a requirement, or an implementation preference into a product constraint.
-- **Permanent Infrastructure Layer**:
-  - Reusable agent behaviors, security permissions, tool execution rules, and reading order belong exclusively in standing infrastructure (`AGENTS.md`, `rules/*.md`, `skills/`).
-  - NEVER create a 4th per-feature markdown file for "agent instructions" (prevents instruction drift).
-- **The 3-Document Feature Triad (Separation of What Does Not Change from What Changes)**:
-  - **spec.md (What Does NOT Change)**:
-    - Scope, problem/outcomes, normative requirements (`REQ-xxx`), acceptance criteria (`AC-xxx`, Given/When/Then), external contracts/schemas, invariants, constraints, and non-goals.
-    - Stable human baseline; changes only through conscious renegotiation with the human user.
-    - Focuses on observable behavior, external schemas, and invariants; illustrative snippets are welcome when clarifying contracts, while internal production logic belongs in implementation.
-  - **plan.md (What Changes on Architectural Discovery)**:
-    - Engineering architecture, component mapping, data flow, migration strategy, error handling, and trade-offs.
-    - Technical blueprint; evolves as spikes, prototypes, or codebase inspection uncover better ways to fulfill the invariant spec.
-    - References spec requirements without duplicating external contracts.
-  - **tasks.md (What Changes Continuously)**:
-    - Sequenced operational work units, dynamic execution state (`- [ ]` -> `- [x]`), requirement references (`Requirements: REQ-xxx`), and task dependencies (`Depends on: T-xxx`).
-    - Dynamic workboard; mutates continuously with passing test evidence.
-- **The "Differential Rate of Change" Principle**:
-  - `plan.md` and `tasks.md` MUST remain separate files. Design decisions and execution state mutate at fundamentally different cadences; combining them introduces execution noise into architecture and causes agents to mistake an operational task for an invariant requirement.
-- **Controlled Spec Amendments**:
-  - Approval creates a stable baseline with controlled amendments, not a ban on learning. If an acceptance criterion is discovered to be infeasible, escalate to the human user for explicit re-approval. Never silently redefine requirements in `plan.md`.
-- **Optional Lifecycle Bookends**:
-  - `research.md`: Pre-flight discovery for complex brownfield code investigation and spikes.
-  - `walkthrough.md`: Post-flight verification evidence, test logs, diff summaries, and user handoff.
+- **The 5-Document Architecture**:
+  1. `spec.md`: What must be true (Living, versioned, human-approved).
+  2. `decisions.md`: What has been explicitly decided (Append-only, superseded but never edited).
+  3. `design.md`: How we intend to build it (Revisable architecture blueprint).
+  4. `tasks.md`: What remains to be done (Volatile, execution checkboxes).
+  5. `verification.md`: Evidence that it works (Append-only per run, verbatim tool output).
+- **Precedence Order**: `spec.md` > `decisions.md` > `design.md` > `tasks.md`. `verification.md` can invalidate any document, but may never redefine the spec.
+- **Scaling Switches**: The base configuration is `spec.md` + `design.md` + `tasks.md`. Only add `decisions.md` for rationale that must outlive the decision. Only add `verification.md` when correctness must be demonstrated with reproducible evidence.
+- **Requirement IDs (The Spine)**: Every normative requirement MUST have a stable ID (e.g., REQ-001) in `spec.md`. This ID must be threaded through all 5 documents to maintain traceability.
+- **Conflict Protocol**: When documents disagree, STOP the affected work. Name the conflict and apply the precedence order. Never silently reconcile a mismatch by editing whichever file is convenient.
 </constraints>
 
 <instructions>
-### 1. Document Authority Matrix
-| Concern | Authoritative Location |
-| :--- | :--- |
-| Security, tool permissions, gating rules | Permanent Infrastructure (`AGENTS.md`, global rules) |
-| Observable behavior, business rules, external contracts | `spec.md` |
-| Technical architecture, data flow, component design | `plan.md` |
-| Work queue, dependencies, verification evidence | `tasks.md` |
+### 1. Document Authority
+When verifying an implementation, the source of truth is always `spec.md`. If a test fails because the `design.md` contradicts `spec.md`, the design is wrong. Propose a change to the design, do not weaken the spec to make tests pass.
 
-*Conflict Invariant*: Any conflict between documents triggers human escalation; never assume "the most recently read document wins."
-
-### 2. Traceability Graph
-All engineering work traces forward and backward:
-```
-spec.md (REQ-xxx) -> plan.md (Design) -> tasks.md (T-xxx -> REQ-xxx) -> code & tests
-```
-Verification must test against requirements in `spec.md`, not merely match existing implementation code.
+### 2. Traceability Enforcement
+When updating `tasks.md` or writing to `verification.md`, you must explicitly cite the requirement ID (e.g., `Requirements: REQ-007`). An ID with no evidence is unverified work. Evidence with no ID is unaccounted activity.
 </instructions>
 </rule>

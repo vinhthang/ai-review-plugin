@@ -60,9 +60,9 @@ def test_spec_review_skill_conformance():
     assert "--output-file review.json" in content, "Must document --output-file review.json"
     assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
 
-def test_plan_review_skill_conformance():
-    skill_path = os.path.join(PLUGIN_ROOT, "skills", "plan-review", "SKILL.md")
-    assert os.path.exists(skill_path), "skills/plan-review/SKILL.md must exist"
+def test_design_review_skill_conformance():
+    skill_path = os.path.join(PLUGIN_ROOT, "skills", "design-review", "SKILL.md")
+    assert os.path.exists(skill_path), "skills/design-review/SKILL.md must exist"
     
     with open(skill_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -91,11 +91,11 @@ def test_plan_review_skill_conformance():
     assert "Exit 2" not in content, "Must strip legacy Exit 2"
     assert "<PLAN_FILE>" not in content, "Must eliminate lingering <PLAN_FILE> placeholder"
 
-    # Plan-review hardening: self_review_counter reset in ESCALATE and PREPARE
+    # Design-review hardening: self_review_counter reset in ESCALATE and PREPARE
     assert "self_review_counter = 0" in content
-    # Plan-review hardening: P2-only rejection guard in EVALUATE
+    # Design-review hardening: P2-only rejection guard in EVALUATE
     assert "P2-Only Guard" in content
-    # Plan-review hardening: rule citation update
+    # Design-review hardening: rule citation update
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
