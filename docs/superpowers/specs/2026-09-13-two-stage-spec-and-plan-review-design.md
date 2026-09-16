@@ -1,3 +1,6 @@
+> [!WARNING]
+> **SUPERSEDED:** This monolithic 13-state specification has been superseded by the **Modular Review Architecture** in [`docs/superpowers/specs/2026-09-16-modular-review-flows/`](./2026-09-16-modular-review-flows/spec.md). Refer to the new feature package for canonical normative requirements.
+
 # Two-Stage Spec and Plan Review Architecture
 
 **Date**: 2026-09-13  

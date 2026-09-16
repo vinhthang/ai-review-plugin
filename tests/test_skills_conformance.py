@@ -17,43 +17,30 @@ def test_spec_review_skill_conformance():
     assert "name: spec-review" in content, "Must have name: spec-review in frontmatter"
     assert "docs/superpowers/specs/" in content, "Description/content must target specs directory"
 
-    # Step 1: Goals - connects with superpowers:brainstorming
+    # Ray Dalio 5-Step mappings & Superpowers connections
     assert "superpowers:brainstorming" in content, "Must connect with superpowers:brainstorming"
-
-    # Step 2: Don't Tolerate Problems - eliminate docs/tech_debt
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-
-    # Step 3: Diagnose Root Causes - systematic-debugging
     assert "superpowers:systematic-debugging" in content, "Must connect with superpowers:systematic-debugging"
-
-    # Step 4: Design Plans - writing-plans
     assert "superpowers:writing-plans" in content, "Must connect with superpowers:writing-plans"
-
-    # Step 5: Push to Results - explicit approval gate
     assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
+    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
+    assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
-    # Mermaid diagram states
-    assert "INIT --> DISCOVER" in content
-    assert "DISCOVER --> PREPARE" in content
-    assert "PREPARE --> REVIEW" in content
-    assert "REVIEW --> EVALUATE" in content
-    assert "EVALUATE --> APPROVAL_GATE" in content
-    assert 'no P0/P1 issues exist (approved or advisory rejected)' in content, "Mermaid diagram must use unambiguous boolean transition label"
-    assert "APPROVAL_GATE --> DONE" in content
+    # Numbered Mermaid diagram transitions
+    assert "Audit --> Governance : 1. Clean" in content
+    assert "Audit --> Remediation : 2. Defects Found" in content
+    assert "Remediation --> Audit : 3. Re-Audit Loop" in content
+    assert "Remediation --> Governance : 4. Escalated" in content
+    assert "Governance --> Done : 5. Approved" in content
+
+    # P2-Only Guard
+    assert "P2-Only Guard" in content, "Must include P2-Only Guard"
 
     # Clean subagent protocols - no legacy Exit codes, proper payload schema
     assert "review_status" in content, "Must use review_status payload property"
     assert "Exit 0" not in content, "Must strip legacy Exit 0"
     assert "Exit 1" not in content, "Must strip legacy Exit 1"
     assert "Exit 2" not in content, "Must strip legacy Exit 2"
-
-    # Hardening: self_review_counter reset in ESCALATE and PREPARE
-    assert "self_review_counter = 0" in content, "Must reset self_review_counter to prevent deadlocks"
-    # Hardening: P2-Only Guard
-    assert "P2-Only Guard" in content, "Must include P2-Only Guard"
-    # Hardening: AGENTS.md citation
-    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
-    assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
     # Review command
     assert "--mode spec" in content, "Must use --mode spec in reviewer dispatch"
@@ -67,22 +54,26 @@ def test_design_review_skill_conformance():
     with open(skill_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Step 1: Goals - connects with superpowers:brainstorming
+    # Frontmatter
+    assert "name: design-review" in content
+
+    # Ray Dalio 5-Step mappings & Superpowers connections
     assert "superpowers:brainstorming" in content, "Must connect with superpowers:brainstorming"
-
-    # Step 2: Don't Tolerate Problems - eliminate docs/tech_debt/
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-
-    # Step 3: Diagnose Root Causes - systematic-debugging
     assert "superpowers:systematic-debugging" in content, "Must connect with superpowers:systematic-debugging"
-
-    # Step 4: Design Plans - writing-plans
     assert "superpowers:writing-plans" in content, "Must standardize on superpowers:writing-plans"
-
-    # Step 5: Push to Results - explicit approval gate and subagent-driven-development
     assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
     assert "rules/reasoning-quality.md" in content, "Must reference rules/reasoning-quality.md"
     assert "superpowers:subagent-driven-development" in content, "Must delegate execution to subagent-driven-development"
+    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
+    assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
+
+    # Numbered Mermaid diagram transitions
+    assert "Audit --> Governance : 1. Clean" in content
+    assert "Audit --> Remediation : 2. Defects Found" in content
+    assert "Remediation --> Audit : 3. Re-Audit Loop" in content
+    assert "Remediation --> Governance : 4. Escalated" in content
+    assert "Governance --> Done : 5. Approved" in content
 
     # Subagent Protocol Cleanup - structured JSON, no legacy Exit codes, no stale placeholders
     assert 'review_status' in content, "Must use review_status payload property"
@@ -91,29 +82,13 @@ def test_design_review_skill_conformance():
     assert "Exit 2" not in content, "Must strip legacy Exit 2"
     assert "<PLAN_FILE>" not in content, "Must eliminate lingering <PLAN_FILE> placeholder"
 
-    # Design-review hardening: self_review_counter reset in ESCALATE and PREPARE
-    assert "self_review_counter = 0" in content
-    # Design-review hardening: P2-only rejection guard in EVALUATE
+    # Design-review hardening: P2-only rejection guard
     assert "P2-Only Guard" in content
-    # Design-review hardening: rule citation update
-    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
-    assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
     # Review command and output persistence
     assert "--output-file review.json" in content, "Must document --output-file review.json"
     assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
-
-    # R3: SPEC_GATE conformance
-    assert "SPEC_GATE" in content, "Must contain SPEC_GATE state"
-    assert "DISCOVER --> SPEC_GATE" in content, "Must transition from DISCOVER to SPEC_GATE"
-    assert "SPEC_GATE --> PREPARE" in content, "Must transition from SPEC_GATE to PREPARE"
     assert "--no-spec" in content, "Must support --no-spec flag for standalone plans"
-
-    # R3: ISSUE-R3-01 escalation ceiling even if review_status is approved with P0/P1
-    assert "attempt_counter >= 5" in content
-    assert "debate_counter >= 3" in content
-    assert "ISSUE-R3-01" in content or "Escalation Ceiling" in content
-    assert 'no P0/P1 issues exist (approved or advisory rejected)' in content, "Mermaid diagram must use unambiguous boolean transition label"
 
 def test_code_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "code-review", "SKILL.md")
@@ -248,3 +223,35 @@ def test_skills_recursive_discovery_conformance():
         d_text = f.read()
     assert "**" in s_text, "spec-review must declare recursive discovery pattern"
     assert "**" in d_text, "design-review must declare recursive discovery pattern"
+
+
+def test_modular_review_architecture_conformance():
+    spec_skill = os.path.join("skills", "spec-review", "SKILL.md")
+    design_skill = os.path.join("skills", "design-review", "SKILL.md")
+    index_file = os.path.join("docs", "superpowers", "specs", "INDEX.md")
+
+    with open(spec_skill, "r", encoding="utf-8") as f:
+        s_text = f.read()
+    with open(design_skill, "r", encoding="utf-8") as f:
+        d_text = f.read()
+    with open(index_file, "r", encoding="utf-8") as f:
+        idx_text = f.read()
+
+    # 1. Assert semantic stage declarations (Audit, Remediation, Governance)
+    for stage in ("### Audit", "### Remediation", "### Governance"):
+        assert stage in s_text, f"spec-review missing {stage}"
+        assert stage in d_text, f"design-review missing {stage}"
+
+    # 2. Assert numbered state transitions in diagrams
+    for transition in ("1. Clean", "2. Defects Found", "3. Re-Audit Loop", "4. Escalated"):
+        assert transition in s_text, f"spec-review missing numbered transition {transition}"
+        assert transition in d_text, f"design-review missing numbered transition {transition}"
+
+    # 3. Assert absence of obsolete monolithic states
+    for obsolete in ("SELF_REVIEW", "attempt_counter >= 5", "debate_counter"):
+        assert obsolete not in s_text, f"spec-review still contains obsolete pattern {obsolete}"
+        assert obsolete not in d_text, f"design-review still contains obsolete pattern {obsolete}"
+
+    # 4. Assert INDEX.md registers the modular flows feature
+    assert "2026-09-16-modular-review-flows" in idx_text
+    assert "REQ-021" in idx_text
