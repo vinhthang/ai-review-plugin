@@ -64,7 +64,7 @@ stateDiagram-v2
 - Resolve target specification using the Spec Resolution Hierarchy:
   1. **Priority 1 (Explicit Argument)**: If caller passes `$1`, resolve canonical path via `os.path.realpath`. If file does not exist, abort.
   2. **Priority 2 (Active Git Working Tree)**: Execute `rtk git status --porcelain docs/superpowers/specs/`. If exactly one spec file is modified (`M`), staged (`A`), or untracked (`??`), select it.
-  3. **Priority 3 (Latest Timestamp File)**: Scan `docs/superpowers/specs/*.md` sorted by `mtime` descending. Select newest file if unambiguous.
+  3. **Priority 3 (Latest Timestamp File)**: Scan recursively across `docs/superpowers/specs/**/spec.md` and `docs/superpowers/specs/*.md` (excluding `INDEX.md`) sorted by `mtime` descending. Select newest file if unambiguous.
   4. **Priority 4 (Interactive Disambiguation)**: If ambiguous, ask user to select. Never guess.
 
 **Transitions:**

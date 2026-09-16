@@ -237,3 +237,14 @@ def test_obsolete_files_cleaned():
     adr_plan = os.path.join(PLUGIN_ROOT, "docs", "adr", "implementation_plan.md")
     assert not os.path.exists(tech_debt_dir), "docs/tech_debt/ directory must be deleted"
     assert not os.path.exists(adr_plan), "docs/adr/implementation_plan.md must be deleted"
+
+
+def test_skills_recursive_discovery_conformance():
+    spec_skill = os.path.join("skills", "spec-review", "SKILL.md")
+    design_skill = os.path.join("skills", "design-review", "SKILL.md")
+    with open(spec_skill, "r") as f:
+        s_text = f.read()
+    with open(design_skill, "r") as f:
+        d_text = f.read()
+    assert "**" in s_text, "spec-review must declare recursive discovery pattern"
+    assert "**" in d_text, "design-review must declare recursive discovery pattern"

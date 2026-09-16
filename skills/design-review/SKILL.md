@@ -56,7 +56,7 @@ stateDiagram-v2
 - Resolve plan target using Plan Resolution Hierarchy:
   1. Priority 1 (Explicit Argument): `$1` if provided.
   2. Priority 2 (Root Design Blueprint): `./implementation_design.md` in repository root.
-  3. Priority 3 (Latest in Archive): Newest file in `docs/superpowers/plans/*.md`.
+  3. Priority 3 (Latest in Archive): Newest file in `docs/superpowers/specs/**/design.md` or `docs/superpowers/plans/*.md`.
 
 **Transitions:**
 - If plan file resolved -> Transition to `SPEC_GATE`

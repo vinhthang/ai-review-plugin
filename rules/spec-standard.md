@@ -1,6 +1,6 @@
 <rule name="spec-standard">
 <description>
-Enforces the 5-Document Architecture for strict lifecycle separation, precedence order, and requirement ID tracking.
+Enforces the 5-Document Architecture for strict lifecycle separation, precedence order, requirement ID tracking, and IDE design mirroring.
 </description>
 
 <constraints>
@@ -10,6 +10,12 @@ Enforces the 5-Document Architecture for strict lifecycle separation, precedence
   3. `design.md`: How we intend to build it (Revisable architecture blueprint).
   4. `tasks.md`: What remains to be done (Volatile, execution checkboxes).
   5. `verification.md`: Evidence that it works (Append-only per run, verbatim tool output).
+- **IDE Approval Conduit & Derived Plan Rule**:
+  `implementation_plan.md` in the Antigravity artifact directory is strictly an ephemeral execution dashboard for the agent's turn. It carries zero independent authority and must stick strictly to the underlying 5 files (`spec.md`, `decisions.md`, `design.md`, `tasks.md`, `verification.md`). Approving `implementation_plan.md` in the IDE constitutes formal human sign-off on `design.md`.
+- **Review Input Boundary Rule**:
+  WorkBuddy peer reviews evaluate only normative and architectural contracts (`spec.md`, `design.md`, `decisions.md`). Operational execution artifacts (`tasks.md`, `verification.md`) are strictly excluded from review inputs.
+- **Feature Packages Layout & INDEX.md**:
+  Every feature or workstream shall be organized within its own package directory under `docs/superpowers/specs/<feature-id>/`. The central catalog `docs/superpowers/specs/INDEX.md` tracks all feature IDs, status, key decisions, and reserved REQ-ID ranges.
 - **Precedence Order**: `spec.md` > `decisions.md` > `design.md` > `tasks.md`. `verification.md` can invalidate any document, but may never redefine the spec.
 - **Scaling Switches**: The base configuration is `spec.md` + `design.md` + `tasks.md`. Only add `decisions.md` for rationale that must outlive the decision. Only add `verification.md` when correctness must be demonstrated with reproducible evidence.
 - **Requirement IDs (The Spine)**: Every normative requirement MUST have a stable ID (e.g., REQ-001) in `spec.md`. This ID must be threaded through all 5 documents to maintain traceability.
