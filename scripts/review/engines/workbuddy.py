@@ -1,16 +1,12 @@
 """WorkBuddy AI Reviewer Adapter."""
 import os
 import sys
-import subprocess
 import tempfile
 import json
-import signal
 import shutil
-import re
-import stat
 from typing import List, Dict, Tuple, Optional, Any
 
-from review.models import WORKBUDDY_MODEL_MAP
+from review.models import WORKBUDDY_MODEL_MAP, sanitize_diagnostics
 from review.engines.base import ReviewEngineAdapter
 
 class WorkBuddyAdapter(ReviewEngineAdapter):

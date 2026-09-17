@@ -1,12 +1,8 @@
 """Codex Reviewer Adapter."""
 import os
 import sys
-import subprocess
 import tempfile
 import json
-import signal
-import shutil
-import re
 from typing import List, Dict, Tuple, Optional, Any
 
 from review.engines.base import ReviewEngineAdapter

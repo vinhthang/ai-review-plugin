@@ -1,10 +1,7 @@
 """Data contracts and envelope models for AI Review Plugin."""
-import os
-import sys
-import json
 import re
 from enum import Enum, auto
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Any
 
 class ReviewVerdict(Enum):
     CLEAN = auto()      # No P0/P1 issues detected

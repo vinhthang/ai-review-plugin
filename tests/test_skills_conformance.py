@@ -210,8 +210,10 @@ def test_peer_review_conformance():
 def test_obsolete_files_cleaned():
     tech_debt_dir = os.path.join(PLUGIN_ROOT, "docs", "tech_debt")
     adr_plan = os.path.join(PLUGIN_ROOT, "docs", "adr", "implementation_plan.md")
+    scratch_test = os.path.join(PLUGIN_ROOT, "scratch", "test.py")
     assert not os.path.exists(tech_debt_dir), "docs/tech_debt/ directory must be deleted"
     assert not os.path.exists(adr_plan), "docs/adr/implementation_plan.md must be deleted"
+    assert not os.path.exists(scratch_test), "scratch/test.py must be deleted"
 
 
 def test_skills_recursive_discovery_conformance():

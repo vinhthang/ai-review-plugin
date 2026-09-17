@@ -9,7 +9,6 @@ codex_stderr.log
 review.json
 !docs/superpowers/specs/**/reviews/*.json
 diagnostic_review.json
-!docs/superpowers/specs/**/reviews/*.json
 # Plan-Review working files (transient, not committed)
 implementation_plan.md
 consensus_summary.md
