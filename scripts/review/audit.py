@@ -434,15 +434,20 @@ def _main(argv=None):
                 print("Fatal: Invalid review.json format, issue item properties.", file=sys.stderr)
                 sys.exit(2)
             if "description" not in item or not (isinstance(item.get("description"), str) and item["description"].strip()):
-                for alt_key in ("details", "message", "summary", "finding"):
-                    if alt_key in item and isinstance(item[alt_key], str) and item[alt_key].strip():
-                        item["description"] = item[alt_key]
-                        break
+                for alt_key in ("details", "message", "summary", "finding", "title", "comment", "text", "note", "explanation", "problem", "issue", "reason", "defect", "desc"):
+                    if alt_key in item:
+                        val = item[alt_key]
+                        if isinstance(val, str) and val.strip():
+                            item["description"] = val.strip()
+                            break
+                        elif isinstance(val, (dict, list)):
+                            item["description"] = json.dumps(val)
+                            break
             if "severity" not in item or item["severity"] not in ("P0", "P1", "P2"):
-                print("Fatal: Invalid review.json format, severity.", file=sys.stderr)
+                print(f"Fatal: Invalid review.json format, severity: {item}", file=sys.stderr)
                 sys.exit(2)
             if "description" not in item or not (isinstance(item.get("description"), str) and item["description"].strip()):
-                print("Fatal: Invalid review.json format, description.", file=sys.stderr)
+                print(f"Fatal: Invalid review.json format, description: {item}", file=sys.stderr)
                 sys.exit(2)
 
             extra_ctx = []
