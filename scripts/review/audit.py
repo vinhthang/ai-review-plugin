@@ -85,7 +85,6 @@ def build_adr_context(repo: str, target_content: str, spec_content: str, max_cha
     selected.sort(key=lambda x: x[0])
     return "\n\n".join(e[1] for e in selected)
 
-
 def _main(argv=None):
     parser = argparse.ArgumentParser(description="Multi-engine autonomous peer reviewer")
     parser.add_argument("--target", required=True, help="Absolute path to target file")
@@ -492,7 +491,6 @@ def _main(argv=None):
             sys.exit(0)
         else:
             sys.exit(1)
-
 
 def main(argv=None):
     try:
