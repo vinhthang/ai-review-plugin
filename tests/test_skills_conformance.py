@@ -118,7 +118,7 @@ def test_code_review_skill_conformance():
     assert "Stage 1: Generate Diff" in content, "Must define Stage 1 diff generation"
     assert "Stage 2: Adversarial Peer Review" in content, "Must define Stage 2 adversarial review"
     assert "Model: flash" in content, "Stage 1 must use flash subagent"
-    assert "Model: pro" in content, "Stage 2 must use pro subagent"
+    assert "deepseek-v4.1-flash" in content, "Must document strict deepseek-v4.1-flash engine execution"
     assert "$REVIEW_TARGET" in content, "Must reference $REVIEW_TARGET path"
 
     # rtk git prefixing

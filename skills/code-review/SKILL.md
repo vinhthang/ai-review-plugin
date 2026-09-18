@@ -46,10 +46,10 @@ This skill performs a single-pass adversarial code review using an explicit two-
 - **Empty Diff Handling (ISSUE-R3-03)**: If no changes were detected, the subagent writes `review.md` documenting clean verification evidence and returns `{"status": "completed", "summary": "No changes to review", "review_target": null}`. `review.md` is preserved in the project root as mandatory verification evidence, and review terminates early.
 - The Primary Agent uses `manage_subagents` to terminate the diff generation subagent.
 
-### Stage 2: Adversarial Peer Review (Pro Subagent)
+### Stage 2: Adversarial Peer Review
 - Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
-- Use `invoke_subagent` with `Model: pro` to spawn a Peer Reviewer subagent to conduct the adversarial review on that diff.
-- Execute adversarial review via peer review CLI:
+- The Primary Agent autonomously selects the subagent model: defaulting to `flash` for standard, localized changes, or upgrading to `pro` for complex cross-file or high-risk architectural changes (with automatic graceful fallback to `flash` if quota limits are encountered).
+- Execute adversarial review via peer review CLI strictly utilizing the default `deepseek-v4.1-flash` engine:
   `rtk python3 scripts/peer_review.py --mode code --repo . --output-file review.json`
 - Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
 - Instruct the reviewer to apply the `superpowers` rule and output findings as a structured JSON payload:
