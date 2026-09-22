@@ -1,17 +1,17 @@
 ---
 name: design-review
-description: An on-demand skill that implements the Autonomous Multi-Model Planning Protocol aligned with Ray Dalio's 5-Step Process and Superpowers Engineering Philosophy.
+description: An on-demand skill that implements the Autonomous Multi-Model Planning Protocol aligned with Ray Dalio's 5-Step Process and Antigravity Engineering Philosophy.
 ---
 # Design-Review Protocol
 
-The `design-review` skill evaluates an architectural design document within the 5-File Architecture (`design.md`) against its governing specification (`spec.md`), requirement traceability (`REQ-XXX`), and TDD rigor. It operationalizes Ray Dalio's 5-Step Process using the **Modular Review Architecture** (`docs/superpowers/specs/2026-09-16-modular-review-flows/`).
+The `design-review` skill evaluates an architectural design document within the 5-File Architecture (`design.md`) against its governing specification (`spec.md`), requirement traceability (`REQ-XXX`), and TDD rigor. It operationalizes Ray Dalio's 5-Step Process using the **Modular Review Architecture** (`docs/specs/2026-09-16-modular-review-flows/`).
 
-## Superpowers & Dalio 5-Step Integration
-- **Step 1: Set Clear Goals:** Ensure architectural design traces to goals established in `superpowers:brainstorming` and `spec.md`.
+## Antigravity & Dalio 5-Step Integration
+- **Step 1: Set Clear Goals:** Ensure architectural design traces to goals established in `Antigravity Disambiguation (/grill-me)` and `spec.md`.
 - **Step 2: Don't Tolerate Problems:** Rigorously eliminate design flaws; zero tolerance for deferred debt or unaddressed defects.
-- **Step 3: Root Cause Diagnosis:** Isolate root causes via `superpowers:systematic-debugging` and `attention-guard/rules/AGENTS.md`.
-- **Step 4: Deterministic Design:** Structure implementation plans via `superpowers:writing-plans` with mirrored IDE layouts.
-- **Step 5: Execution Accountability:** Delegated execution via `superpowers:subagent-driven-development` strictly gated by `rules/explicit-approval.md` and `rules/reasoning-quality.md`.
+- **Step 3: Root Cause Diagnosis:** Isolate root causes via `attention-guard/rules/AGENTS.md (Diagnostician)`.
+- **Step 4: Deterministic Design:** Structure implementation plans via `Antigravity Planning Mode (implementation_plan.md)` with mirrored IDE layouts.
+- **Step 5: Execution Accountability:** Delegated execution via `Antigravity /boost and invoke_subagent` strictly gated by `rules/explicit-approval.md` and `rules/reasoning-quality.md`.
 
 ```mermaid
 stateDiagram-v2
@@ -33,8 +33,8 @@ stateDiagram-v2
 ### Audit (Read-Only)
 1. **Discover Target:** Resolve design target:
    - Explicit argument: `$1` if provided.
-   - Active package: `docs/superpowers/specs/<feature-id>/design.md`.
-   - Fallback: Newest file in `docs/superpowers/specs/**/design.md` or `docs/superpowers/plans/*.md`.
+   - Active package: `docs/specs/<feature-id>/design.md`.
+   - Fallback: Newest file in `docs/specs/**/design.md` or `docs/plans/*.md`.
 2. **Spec Precondition Check:** Ensure governing `spec.md` is present and approved. If missing, halt with escalation unless explicitly running with `--no-spec` for standalone plans.
 3. **Execute Audit:** Launch an isolated review subagent via `peer_review.py`:
    ```bash
@@ -49,7 +49,7 @@ stateDiagram-v2
 ### Remediation
 1. **Issue Triage:** Review each P0/P1 issue. Distinguish accepted defects (`1a`) from disputed feedback (`1b`).
 2. **Root Cause Diagnosis (Dalio Step 3):**
-   - Dispatch Tier 1 Read-Only Pro Diagnostician (`attention-guard/rules/AGENTS.md`) to isolate root causes with `superpowers:systematic-debugging`.
+   - Dispatch Tier 1 Read-Only Pro Diagnostician (`attention-guard/rules/AGENTS.md`) to isolate root causes with `attention-guard/rules/AGENTS.md (Diagnostician)`.
    - If second failure or ambiguous, dispatch Tier 2 External Second-Opinion (WorkBuddy or Codex).
 3. **Stateless Rebuttal Protocol:**
    - For disputed findings, append evidence-backed technical rationale to the prior review context.
@@ -61,9 +61,9 @@ stateDiagram-v2
 ### Governance
 1. **Human Gate Presentation:** Present the review verdict and findings dashboard to the user.
 2. **User Authorization Gate (`rules/explicit-approval.md`):** Await explicit user action:
-   - **`5. Approved` ("Proceed"):** Authorize proceeding to execution (`superpowers:subagent-driven-development`).
+   - **`5. Approved` ("Proceed"):** Authorize proceeding to execution (`Antigravity /boost and invoke_subagent`).
    - **`6. Guided Retry`:** User provides direction; reset `escalation_counter = 0`.
    - **`7. Rejected`:** User rejects design.
 3. **Audit Ledger Persistence:**
-   - Archive the review record to `docs/superpowers/specs/<feature-id>/reviews/design-v<N>.json`.
-   - Update feature status and review link in `docs/superpowers/specs/INDEX.md`.
+   - Archive the review record to `docs/specs/<feature-id>/reviews/design-v<N>.json`.
+   - Update feature status and review link in `docs/specs/INDEX.md`.

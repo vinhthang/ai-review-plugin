@@ -50,14 +50,5 @@ from review.audit import (
     main,
 )
 
-# Conformance validation check for review schema integrity
-try:
-    _models_path = os.path.join(SCRIPT_DIR, "review", "models.py")
-    if os.path.isfile(_models_path):
-        with open(_models_path, "r", encoding="utf-8") as _f:
-            _ = _f.read(10)
-except json.JSONDecodeError as _e:
-    sys.stderr.write(f"Schema configuration error: {_e}\n")
-
 if __name__ == "__main__":
     main()

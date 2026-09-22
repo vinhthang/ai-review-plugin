@@ -52,7 +52,7 @@ This skill performs a single-pass adversarial code review using an explicit two-
 - Execute adversarial review via peer review CLI strictly utilizing the default `deepseek-v4.1-flash` engine:
   `rtk python3 scripts/peer_review.py --mode code --repo . --output-file review.json`
 - Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
-- Instruct the reviewer to apply the `superpowers` rule and output findings as a structured JSON payload:
+- Instruct the reviewer to output findings as a structured JSON payload:
   ```json
   {
     "status": "completed",
@@ -79,7 +79,7 @@ This skill performs a single-pass adversarial code review using an explicit two-
 - If P0/P1 issues were found (`review_status == "rejected"` with blocking defects):
   - Retain `review.md` in the project root.
   - Do NOT tolerate problems or sweep them under the rug. P0/P1 blockers must be diagnosed and fixed before completion.
-  - Reconcile findings against `implementation_plan.md` using `superpowers:systematic-debugging` to identify root causes prior to making any code corrections.
+  - Reconcile findings against `implementation_plan.md` using `attention-guard/rules/AGENTS.md (Diagnostician)` to identify root causes prior to making any code corrections.
   - After diagnosing root causes and implementing fixes, increment `attempt_counter`. If `attempt_counter >= 5`, transition to `ESCALATE`. Otherwise, re-run this code review protocol to verify all P0/P1 blockers are resolved and `review_status == "approved"`.
 - If no P0/P1 issues were found (`review_status == "approved"` or P2 advisory issues only):
   - Treat P2 advisory issues as non-blocking suggestions.

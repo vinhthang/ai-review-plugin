@@ -15,13 +15,13 @@ def test_spec_review_skill_conformance():
 
     # Frontmatter
     assert "name: spec-review" in content, "Must have name: spec-review in frontmatter"
-    assert "docs/superpowers/specs/" in content, "Description/content must target specs directory"
+    assert "docs/specs/" in content, "Description/content must target specs directory"
 
-    # Ray Dalio 5-Step mappings & Superpowers connections
-    assert "superpowers:brainstorming" in content, "Must connect with superpowers:brainstorming"
+    # Ray Dalio 5-Step mappings & Antigravity connections
+    assert "Antigravity Disambiguation (/grill-me)" in content, "Must connect with Antigravity Disambiguation (/grill-me)"
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-    assert "superpowers:systematic-debugging" in content, "Must connect with superpowers:systematic-debugging"
-    assert "superpowers:writing-plans" in content, "Must connect with superpowers:writing-plans"
+    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Must connect with attention-guard/rules/AGENTS.md (Diagnostician)"
+    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must connect with Antigravity Planning Mode (implementation_plan.md)"
     assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
@@ -57,14 +57,14 @@ def test_design_review_skill_conformance():
     # Frontmatter
     assert "name: design-review" in content
 
-    # Ray Dalio 5-Step mappings & Superpowers connections
-    assert "superpowers:brainstorming" in content, "Must connect with superpowers:brainstorming"
+    # Ray Dalio 5-Step mappings & Antigravity connections
+    assert "Antigravity Disambiguation (/grill-me)" in content, "Must connect with Antigravity Disambiguation (/grill-me)"
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-    assert "superpowers:systematic-debugging" in content, "Must connect with superpowers:systematic-debugging"
-    assert "superpowers:writing-plans" in content, "Must standardize on superpowers:writing-plans"
+    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Must connect with attention-guard/rules/AGENTS.md (Diagnostician)"
+    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must standardize on Antigravity Planning Mode (implementation_plan.md)"
     assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
     assert "rules/reasoning-quality.md" in content, "Must reference rules/reasoning-quality.md"
-    assert "superpowers:subagent-driven-development" in content, "Must delegate execution to subagent-driven-development"
+    assert "Antigravity /boost and invoke_subagent" in content, "Must delegate execution to Antigravity /boost and invoke_subagent"
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
@@ -105,7 +105,7 @@ def test_code_review_skill_conformance():
     assert "Delete `review.md`" not in content, "Must never delete review.md on success"
     assert "review.md" in content
     assert "docs/tech_debt" not in content, "Code review must not use docs/tech_debt"
-    assert "superpowers:systematic-debugging" in content, "Code review must use systematic debugging"
+    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Code review must use systematic debugging"
 
     # Must not use trailing extension in mktemp template on BSD/macOS
     assert "review_XXXXXX.diff" not in content, "Must not use trailing .diff in mktemp placeholder"
@@ -156,10 +156,10 @@ def test_readme_conformance():
 
     # Must not contain docs/tech_debt bypass
     assert "docs/tech_debt" not in content, "README must not reference docs/tech_debt bypass"
-    assert "superpowers:brainstorming" in content
-    assert "superpowers:systematic-debugging" in content
-    assert "superpowers:writing-plans" in content
-    assert "superpowers:subagent-driven-development" in content
+    assert "Antigravity Disambiguation (/grill-me)" in content
+    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content
+    assert "Antigravity Planning Mode (implementation_plan.md)" in content
+    assert "Antigravity /boost and invoke_subagent" in content
     assert "rules/explicit-approval.md" in content
     assert "rules/reasoning-quality.md" in content
 
@@ -175,8 +175,8 @@ def test_structured_subagent_payload_schema():
     assert isinstance(payload["issues"], list)
 
 def test_peer_review_conformance():
-    script_path = os.path.join(PLUGIN_ROOT, "scripts", "peer_review.py")
-    assert os.path.exists(script_path), "scripts/peer_review.py must exist"
+    script_path = os.path.join(PLUGIN_ROOT, "scripts", "review", "audit.py")
+    assert os.path.exists(script_path), "scripts/review/audit.py must exist"
     
     with open(script_path, "r", encoding="utf-8") as f:
         source = f.read()
@@ -184,7 +184,6 @@ def test_peer_review_conformance():
     # Rule: no-error-suppression
     assert "except BaseException: pass" not in source, "Must not swallow BaseException with pass"
     assert "except Exception: pass" not in source, "Must not swallow Exception with pass"
-    assert "json.JSONDecodeError" in source, "Must explicitly catch json.JSONDecodeError"
     assert "sys.stderr" in source, "Must log errors to sys.stderr"
 
     # Check AST to ensure NO pass statements exist in any except handler per rules/no-error-suppression.md
@@ -196,7 +195,7 @@ def test_peer_review_conformance():
                     handler_name = ast.unparse(node.type) if node.type else "bare except"
                     pytest.fail(f"Pass statement in except block for '{handler_name}' is forbidden per rules/no-error-suppression.md")
 
-    # Check that every open() call in peer_review.py specifies encoding="utf-8"
+    # Check that every open() call in audit.py specifies encoding="utf-8"
     open_calls = [
         node for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open"
@@ -211,26 +210,32 @@ def test_obsolete_files_cleaned():
     tech_debt_dir = os.path.join(PLUGIN_ROOT, "docs", "tech_debt")
     adr_plan = os.path.join(PLUGIN_ROOT, "docs", "adr", "implementation_plan.md")
     scratch_test = os.path.join(PLUGIN_ROOT, "scratch", "test.py")
+    tdd_rule = os.path.join(PLUGIN_ROOT, "rules", "tdd.md")
+    review_gate_script = os.path.join(PLUGIN_ROOT, "scripts", "review_gate.py")
+    review_gate_test = os.path.join(PLUGIN_ROOT, "tests", "test_review_gate.py")
     assert not os.path.exists(tech_debt_dir), "docs/tech_debt/ directory must be deleted"
     assert not os.path.exists(adr_plan), "docs/adr/implementation_plan.md must be deleted"
     assert not os.path.exists(scratch_test), "scratch/test.py must be deleted"
+    assert not os.path.exists(tdd_rule), "rules/tdd.md must be removed (global rule in ~/.gemini/config/rules/tdd.md)"
+    assert not os.path.exists(review_gate_script), "scripts/review_gate.py must be deleted"
+    assert not os.path.exists(review_gate_test), "tests/test_review_gate.py must be deleted"
 
 
 def test_skills_recursive_discovery_conformance():
-    spec_skill = os.path.join("skills", "spec-review", "SKILL.md")
-    design_skill = os.path.join("skills", "design-review", "SKILL.md")
-    with open(spec_skill, "r") as f:
+    spec_skill = os.path.join(PLUGIN_ROOT, "skills", "spec-review", "SKILL.md")
+    design_skill = os.path.join(PLUGIN_ROOT, "skills", "design-review", "SKILL.md")
+    with open(spec_skill, "r", encoding="utf-8") as f:
         s_text = f.read()
-    with open(design_skill, "r") as f:
+    with open(design_skill, "r", encoding="utf-8") as f:
         d_text = f.read()
     assert "**" in s_text, "spec-review must declare recursive discovery pattern"
     assert "**" in d_text, "design-review must declare recursive discovery pattern"
 
 
 def test_modular_review_architecture_conformance():
-    spec_skill = os.path.join("skills", "spec-review", "SKILL.md")
-    design_skill = os.path.join("skills", "design-review", "SKILL.md")
-    index_file = os.path.join("docs", "superpowers", "specs", "INDEX.md")
+    spec_skill = os.path.join(PLUGIN_ROOT, "skills", "spec-review", "SKILL.md")
+    design_skill = os.path.join(PLUGIN_ROOT, "skills", "design-review", "SKILL.md")
+    index_file = os.path.join(PLUGIN_ROOT, "docs", "specs", "INDEX.md")
 
     with open(spec_skill, "r", encoding="utf-8") as f:
         s_text = f.read()
@@ -257,3 +262,4 @@ def test_modular_review_architecture_conformance():
     # 4. Assert INDEX.md registers the modular flows feature
     assert "2026-09-16-modular-review-flows" in idx_text
     assert "REQ-021" in idx_text
+

@@ -20,7 +20,7 @@ def test_archive_review_artifact_increments_version(tmp_path):
 
 def test_update_index_catalog(tmp_path):
     repo_root = str(tmp_path)
-    specs_dir = os.path.join(repo_root, "docs", "superpowers", "specs")
+    specs_dir = os.path.join(repo_root, "docs", "specs")
     os.makedirs(specs_dir, exist_ok=True)
     index_file = os.path.join(specs_dir, "INDEX.md")
 

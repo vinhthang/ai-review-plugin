@@ -5,8 +5,8 @@ import re
 from typing import Dict, Any, Optional
 
 def archive_review_artifact(repo_root: str, feature_id: str, mode: str, review_data: Dict[str, Any]) -> str:
-    """Archive review artifact to docs/superpowers/specs/<feature-id>/reviews/<mode>-v<N>.json."""
-    pkg_reviews_dir = os.path.join(repo_root, "docs", "superpowers", "specs", feature_id, "reviews")
+    """Archive review artifact to docs/specs/<feature-id>/reviews/<mode>-v<N>.json."""
+    pkg_reviews_dir = os.path.join(repo_root, "docs", "specs", feature_id, "reviews")
     os.makedirs(pkg_reviews_dir, exist_ok=True)
 
     # Calculate next version
@@ -23,8 +23,8 @@ def archive_review_artifact(repo_root: str, feature_id: str, mode: str, review_d
     return dest_path
 
 def update_index_catalog(repo_root: str, feature_id: str, status: str, review_link: str) -> bool:
-    """Update docs/superpowers/specs/INDEX.md with updated review link and status."""
-    index_path = os.path.join(repo_root, "docs", "superpowers", "specs", "INDEX.md")
+    """Update docs/specs/INDEX.md with updated review link and status."""
+    index_path = os.path.join(repo_root, "docs", "specs", "INDEX.md")
     if not os.path.isfile(index_path):
         return False
 

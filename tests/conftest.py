@@ -6,8 +6,10 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../scripts')))
 
 @pytest.fixture(autouse=True)
-def _default_legacy_codex_engine(monkeypatch):
-    if "AI_REVIEW_ENGINE" not in os.environ:
+def _default_legacy_codex_engine(request, monkeypatch):
+    # Scope legacy codex engine to suites that specifically mock the codex CLI
+    legacy_codex_modules = ("test_peer_review", "test_review_audit", "test_review_process", "test_review_prior")
+    if getattr(request, "module", None) and request.module.__name__ in legacy_codex_modules:
         monkeypatch.setenv("AI_REVIEW_ENGINE", "codex")
 
 @pytest.fixture

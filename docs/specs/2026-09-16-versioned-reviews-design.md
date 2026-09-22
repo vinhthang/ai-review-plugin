@@ -15,8 +15,8 @@
 Currently, markdown documents and review outputs exist as loose, flat files. In iterative development, when an agent addresses review feedback and triggers a subsequent review round, previous review outputs (`review.json` / `review.md`) are overwritten. This destroys the audit trail, preventing the reviewer from verifying that previous P0/P1 defects were legitimately resolved without introducing regressions. Furthermore, future agents starting new tasks lack a centralized index to discover prior architectural decisions and requirement IDs.
 
 This specification defines:
-1. A feature-package directory convention under `docs/superpowers/specs/<feature-id>/`.
-2. A central registry `docs/superpowers/specs/INDEX.md` maintained by agents.
+1. A feature-package directory convention under `docs/specs/<feature-id>/`.
+2. A central registry `docs/specs/INDEX.md` maintained by agents.
 3. A stateless `--prior-review` flag in `peer_review.py` with strict input sanitization, closing-tag escaping, and deterministic size bounding.
 4. Recursive discovery rules in the `spec-review`, `design-review`, and `code-review` skills.
 
@@ -25,7 +25,7 @@ This specification defines:
 ## 2. Non-Goals & Scope Exclusions
 
 To maintain explicit architectural boundaries:
-- **No Automatic Legacy Migration:** Existing flat specs in `docs/superpowers/specs/*.md` are permanently dual-supported. They shall not be moved or converted automatically.
+- **No Automatic Legacy Migration:** Existing flat specs in `docs/specs/*.md` are permanently dual-supported. They shall not be moved or converted automatically.
 - **No Python-Level Concurrency Locks:** In accordance with ADR-0002, `peer_review.py` shall contain zero filesystem locks, atomic sequence generators, or concurrency retry loops. Orchestration and file-naming concurrency belong strictly to the calling Agent.
 - **No Review Coverage for Volatile Documents:** `tasks.md` and `verification.md` are operational execution tracking artifacts; they are out-of-scope for automated review by `peer_review.py`.
 - **Top-Level Single-Shot Compatibility:** Invoking `peer_review.py` with `--output-file review.json` at the workspace root remains fully supported for backward compatibility.
@@ -35,7 +35,7 @@ To maintain explicit architectural boundaries:
 ## 3. Requirements & Traceability
 
 ### REQ-001: Feature Package Directory Layout
-The repository shall support organizing each feature within a self-contained directory under `docs/superpowers/specs/<feature-id>/`.
+The repository shall support organizing each feature within a self-contained directory under `docs/specs/<feature-id>/`.
 - **Structure:**
   - `spec.md`: Normative requirements and acceptance criteria.
   - `decisions.md` (Optional switch): Append-only ADRs.
@@ -43,12 +43,12 @@ The repository shall support organizing each feature within a self-contained dir
   - `tasks.md`: Volatile task execution checklist.
   - `verification.md` (Optional switch): Verbatim command execution logs.
   - `reviews/`: Historical review reports (`001-<mode>.json`, `002-<mode>.json`).
-- **AC-001.1:** Flat legacy specifications in `docs/superpowers/specs/*.md` must continue to be discoverable without moving them.
-- **AC-001.2:** The repository `.gitignore` shall be updated with the exception rule `!docs/superpowers/specs/**/reviews/*.json` so that review reports in feature directories are tracked by Git while root `review.json` remains ignored.
-- **AC-001.3:** This specification itself shall self-apply this pattern, living at `docs/superpowers/specs/2026-09-16-versioned-reviews/spec.md` with a backward-compatible copy at `docs/superpowers/specs/2026-09-16-versioned-reviews-design.md`.
+- **AC-001.1:** Flat legacy specifications in `docs/specs/*.md` must continue to be discoverable without moving them.
+- **AC-001.2:** The repository `.gitignore` shall be updated with the exception rule `!docs/specs/**/reviews/*.json` so that review reports in feature directories are tracked by Git while root `review.json` remains ignored.
+- **AC-001.3:** This specification itself shall self-apply this pattern, living at `docs/specs/2026-09-16-versioned-reviews/spec.md` with a backward-compatible copy at `docs/specs/2026-09-16-versioned-reviews-design.md`.
 
-### REQ-002: Central Feature Registry (`docs/superpowers/specs/INDEX.md`)
-The repository shall maintain a root index at `docs/superpowers/specs/INDEX.md` acting as a discovery registry for AI agents during Phase 1 research.
+### REQ-002: Central Feature Registry (`docs/specs/INDEX.md`)
+The repository shall maintain a root index at `docs/specs/INDEX.md` acting as a discovery registry for AI agents during Phase 1 research.
 - **AC-002.1:** `INDEX.md` shall contain a Markdown table recording: `Feature ID`, `Title`, `Status`, `REQ Range`, `Key Decisions`, and `Spec Path`.
 - **AC-002.2 (Deterministic Allocation Contract):** When an agent initiates a new feature, it shall read `INDEX.md`, determine the highest assigned requirement ID integer \(N\), reserve a block of 10 IDs (\(N+1\) to \(N+10\)), and immediately commit the new row to `INDEX.md` before authoring `spec.md`.
 
@@ -68,7 +68,7 @@ In accordance with ADR-0002, `peer_review.py` shall remain purely stateless. Fil
 
 ### REQ-004: Recursive Spec Discovery in Review Skills
 The `spec-review` and `design-review` skills shall discover target specifications recursively.
-- **AC-004.1:** The skill discovery heuristic shall search both `docs/superpowers/specs/**/spec.md`, `docs/superpowers/specs/**/design.md`, and flat `docs/superpowers/specs/*.md`.
+- **AC-004.1:** The skill discovery heuristic shall search both `docs/specs/**/spec.md`, `docs/specs/**/design.md`, and flat `docs/specs/*.md`.
 - **AC-004.2:** In interactive mode, if multiple specs are detected, the skill shall list the candidate specifications with their feature IDs and prompt the user or agent for selection.
 
 ---

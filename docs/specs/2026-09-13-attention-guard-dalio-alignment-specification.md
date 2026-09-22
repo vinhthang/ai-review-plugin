@@ -77,7 +77,7 @@ stateDiagram-v2
    - Fail-Fast Sibling Cancellation: If a worker fails, the Coordinator immediately cancels all running sibling subagents via `manage_subagents(action="kill")`. Cancelled siblings receive outcome `CANCELLED_BY_SIBLING_FAILURE` and do NOT increment retry counters or trigger independent diagnoses.
    - Lossless Aggregation Invariant: If ANY child worker reports `status: "failed"` or encounters a timeout, the Coordinator MUST NOT suppress or mask the failure. It must aggregate the complete worker telemetry into `subagent_results` and return `status: "failed"` with `failure_kind: "CHILD_FAILURE"`, listing all failed task IDs in `failed_child_tasks`. The only exception is if the failed child's `task_id` matches an entry in the approved `Advisory Tasks Manifest` with `advisory: true`.
 3. **Diagnostician Subagent (Escalation Analyst)**:
-   - Model Tier: `pro` (Maximum Reasoning).
+   - Model Tier: `flash` (Default rapid root-cause diagnosis) or `pro` (High-reasoning escalation fallback).
    - Lifecycle: Activated exclusively during Step 3 (Escalation Protocol).
    - Constraints: **Strictly read-only.** Forbidden from modifying code, applying git commits, or executing state-altering commands.
    - Responsibilities: Investigates failure evidence, isolates proximate vs. root causes, evaluates competing hypotheses, and produces a structured diagnosis report with a proposed remediation strategy.
@@ -203,7 +203,7 @@ The Primary Agent evaluates executor `command_results` against the approved `Acc
 
 ---
 
-### 3.2 Contract 1: Diagnostician Subagent (`pro`)
+### 3.2 Contract 1: Diagnostician Subagent (`flash` / `pro`)
 
 #### JSON Schema (`schemas/diagnostician-payload.json`)
 ```json

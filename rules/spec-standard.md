@@ -15,7 +15,7 @@ Enforces the 5-Document Architecture for strict lifecycle separation, precedence
 - **Review Input Boundary Rule**:
   WorkBuddy peer reviews evaluate only normative and architectural contracts (`spec.md`, `design.md`, `decisions.md`). Operational execution artifacts (`tasks.md`, `verification.md`) are strictly excluded from review inputs.
 - **Feature Packages Layout & INDEX.md**:
-  Every feature or workstream shall be organized within its own package directory under `docs/superpowers/specs/<feature-id>/`. The central catalog `docs/superpowers/specs/INDEX.md` tracks all feature IDs, status, key decisions, and reserved REQ-ID ranges.
+  Every feature or workstream shall be organized within its own package directory under `docs/specs/<feature-id>/`. The central catalog `docs/specs/INDEX.md` tracks all feature IDs, status, key decisions, and reserved REQ-ID ranges.
 - **Precedence Order**: `spec.md` > `decisions.md` > `design.md` > `tasks.md`. `verification.md` can invalidate any document, but may never redefine the spec.
 - **Scaling Switches**: The base configuration is `spec.md` + `design.md` + `tasks.md`. Only add `decisions.md` for rationale that must outlive the decision. Only add `verification.md` when correctness must be demonstrated with reproducible evidence.
 - **Requirement IDs (The Spine)**: Every normative requirement MUST have a stable ID (e.g., REQ-001) in `spec.md`. This ID must be threaded through all 5 documents to maintain traceability.

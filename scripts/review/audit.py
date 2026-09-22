@@ -330,7 +330,7 @@ def _main(argv=None):
         prompt_lines.append("\nUse severity P0 or P1 for functional/correctness defects (these block execution).")
         prompt_lines.append("Use severity P2 for advisory/style feedback only.")
         if args.spec:
-            prompt_lines.append("Context: Before reviewing, please read the `docs/superpowers/specs/` and `docs/adr/` directories for architectural specifications and decision records.")
+            prompt_lines.append("Context: Before reviewing, please read the `docs/specs/` and `docs/adr/` directories for architectural specifications and decision records.")
         else:
             prompt_lines.append("Context: Before reviewing, please read the `docs/adr/` directory for historical Architecture Decision Records.")
 

@@ -8,7 +8,7 @@
 ---
 
 ## 1. Problem Statement & Motivation
-The previous review architecture documented in `docs/superpowers/specs/2026-09-13-two-stage-spec-and-plan-review-design.md` suffered from state explosion:
+The previous review architecture documented in `docs/specs/2026-09-13-two-stage-spec-and-plan-review-design.md` suffered from state explosion:
 1. **13 Monolithic States & 25+ Transitions:** Attempted to model target discovery, peer review execution, local debates, self-reviews, diagnostic fixes, and human approval in a single massive state machine.
 2. **Tripled Counters:** Maintained `attempt_counter`, `debate_counter`, and `self_review_counter` independently, creating confusing combinatoric exits.
 3. **Unnumbered, Cluttered Diagrams:** Unreadable condition guards on arrows obscured the sequential flow of work.
@@ -52,7 +52,7 @@ stateDiagram-v2
 The review architecture SHALL decompose the review workflow into three distinct, decoupled stages using pure semantic domain terminology without numeric stage prefixes:
 1. **Audit (Read-Only):** Discovers target file (`spec.md` or `design.md`), checks preconditions, runs `peer_review.py` (with optional `--prior-review`), validates JSON schema, and emits a normalized verdict (`CLEAN`, `BLOCKED`, or `FATAL`).
 2. **Remediation:** Consumes `BLOCKED` verdicts, classifies issues, conducts Dalio Step 3 Root Cause Diagnosis, applies document amendments, and determines next action (`READY_FOR_RE_AUDIT` or `ESCALATE_TO_HUMAN`).
-3. **Governance:** Formally pauses execution for human review ("Proceed" / Guidance / Abort), archives passing or escalated review JSON into `reviews/<mode>-v<N>.json`, and updates `docs/superpowers/specs/INDEX.md`.
+3. **Governance:** Formally pauses execution for human review ("Proceed" / Guidance / Abort), archives passing or escalated review JSON into `reviews/<mode>-v<N>.json`, and updates `docs/specs/INDEX.md`.
 
 ### REQ-022: Orchestrated Pipeline Coupling
 The Primary Agent SHALL orchestrate the stages as a linear pipeline with bounded remediation loops:
@@ -68,8 +68,8 @@ Disagreements between the agent and reviewer findings SHALL NOT spawn dedicated 
 
 ### REQ-024: Semantic Review File Archival & Central Indexing
 Review persistence SHALL follow a deterministic naming and registry protocol:
-1. Review files SHALL be archived in the feature package directory under `docs/superpowers/specs/<feature-id>/reviews/<mode>-v<N>.json` (e.g. `spec-v1.json`, `spec-v2.json`, `design-v1.json`).
-2. The central catalog at `docs/superpowers/specs/INDEX.md` SHALL record the feature's latest status, date, and link to the latest review artifact.
+1. Review files SHALL be archived in the feature package directory under `docs/specs/<feature-id>/reviews/<mode>-v<N>.json` (e.g. `spec-v1.json`, `spec-v2.json`, `design-v1.json`).
+2. The central catalog at `docs/specs/INDEX.md` SHALL record the feature's latest status, date, and link to the latest review artifact.
 
 ### REQ-025: In-Place Skill Streamlining & Numbered Transition Conformance
 The user-facing entry points `skills/spec-review/SKILL.md` and `skills/design-review/SKILL.md` SHALL be refactored in-place:
