@@ -244,7 +244,7 @@ def _main(argv=None):
             try:
                 os.mkdir(repo_copy)
                 subprocess.run(
-                    [rsync_bin, "-a", "--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", f"{repo}/", f"{repo_copy}/"],
+                    [rsync_bin, "-a", "--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", "--exclude=target", "--exclude=node_modules", f"{repo}/", f"{repo_copy}/"],
                     check=True
                 )
                 rsync_success = True
@@ -256,7 +256,7 @@ def _main(argv=None):
 
         if not rsync_success:
             def _ignore_patterns(path, names):
-                return {n for n in names if n in {".git", ".gemini", "AGENTS.md"}}
+                return {n for n in names if n in {".git", ".gemini", "AGENTS.md", "target", "node_modules"}}
             shutil.copytree(repo, repo_copy, ignore=_ignore_patterns, dirs_exist_ok=True)
 
         with open(schema_path, 'w', encoding="utf-8") as f:

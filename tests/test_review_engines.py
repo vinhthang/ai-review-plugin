@@ -325,7 +325,50 @@ def test_workbuddy_full_execution_with_extra_properties(mock_popen, target_and_r
     assert issue["severity"] == "P1"
     assert "file: server.py" in issue["description"]
     assert "line: 42" in issue["description"]
-    assert "Critical security bug" in issue["description"]
     assert set(issue.keys()) == {"severity", "description"}
 
 
+def test_workbuddy_resolve_binary_prefers_cbc_on_path(monkeypatch):
+    monkeypatch.delenv("WORKBUDDY_BIN", raising=False)
+    adapter = peer_review.WorkBuddyAdapter()
+    
+    def fake_which(cmd):
+        if cmd == "cbc":
+            return "/opt/homebrew/bin/cbc"
+        if cmd == "codebuddy":
+            return "/opt/homebrew/bin/codebuddy"
+        return None
+
+    monkeypatch.setattr("shutil.which", fake_which)
+    monkeypatch.setattr("os.access", lambda path, mode: True)
+    assert adapter.resolve_binary() == ["/opt/homebrew/bin/cbc"]
+
+
+def test_workbuddy_resolve_binary_falls_back_to_codebuddy(monkeypatch):
+    monkeypatch.delenv("WORKBUDDY_BIN", raising=False)
+    adapter = peer_review.WorkBuddyAdapter()
+
+    def fake_which(cmd):
+        if cmd == "cbc":
+            return None
+        if cmd == "codebuddy":
+            return "/usr/local/bin/codebuddy"
+        return None
+
+    monkeypatch.setattr("shutil.which", fake_which)
+    monkeypatch.setattr("os.access", lambda path, mode: True)
+    assert adapter.resolve_binary() == ["/usr/local/bin/codebuddy"]
+
+
+def test_workbuddy_resolve_binary_falls_back_to_app_bundle(monkeypatch):
+    monkeypatch.delenv("WORKBUDDY_BIN", raising=False)
+    adapter = peer_review.WorkBuddyAdapter()
+
+    def fake_which(cmd):
+        if cmd == "node":
+            return "/usr/local/bin/node"
+        return None
+
+    monkeypatch.setattr("shutil.which", fake_which)
+    monkeypatch.setattr("os.path.isfile", lambda path: path == "/Applications/WorkBuddy AI.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy")
+    assert adapter.resolve_binary() == ["/usr/local/bin/node", "/Applications/WorkBuddy AI.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy"]

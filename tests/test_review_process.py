@@ -135,7 +135,7 @@ def test_peer_review_persists_output_file(mock_popen, target_and_repo, tmp_path,
         mock_proc.__enter__.return_value = mock_proc
 
         if "stdout" in kwargs and hasattr(kwargs["stdout"], "write"):
-            if any("codebuddy" in str(arg) for arg in cmd):
+            if any("codebuddy" in str(arg) or "cbc" in str(arg) for arg in cmd):
                 events = [
                     {"type": "system", "session_id": "sess-456"},
                     {

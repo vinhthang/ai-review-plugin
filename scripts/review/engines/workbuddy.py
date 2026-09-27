@@ -25,13 +25,15 @@ class WorkBuddyAdapter(ReviewEngineAdapter):
             print(f"Fatal: WORKBUDDY_BIN is neither executable nor a recognized JavaScript bundle: {env_bin}", file=sys.stderr)
             sys.exit(2)
 
-        # 2. Check standard macOS Application Bundle path
-        bundle_bin = "/Applications/WorkBuddy AI.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy"
-        if os.path.isfile(bundle_bin):
-            node = self._find_node()
-            return [node, bundle_bin]
+        # 2. Check cbc CLI on PATH
+        path_cbc = shutil.which("cbc")
+        if path_cbc:
+            if not os.access(path_cbc, os.X_OK):
+                print(f"Fatal: Discovered cbc on PATH is not executable: {path_cbc}", file=sys.stderr)
+                sys.exit(2)
+            return [path_cbc]
 
-        # 3. Check PATH
+        # 3. Check codebuddy on PATH
         path_bin = shutil.which("codebuddy")
         if path_bin:
             if not os.access(path_bin, os.X_OK):
@@ -39,7 +41,13 @@ class WorkBuddyAdapter(ReviewEngineAdapter):
                 sys.exit(2)
             return [path_bin]
 
-        raise FileNotFoundError("WorkBuddy CLI ('codebuddy') not found. Set WORKBUDDY_BIN or install WorkBuddy AI.")
+        # 4. Check standard macOS Application Bundle path
+        bundle_bin = "/Applications/WorkBuddy AI.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy"
+        if os.path.isfile(bundle_bin):
+            node = self._find_node()
+            return [node, bundle_bin]
+
+        raise FileNotFoundError("WorkBuddy CLI ('cbc' or 'codebuddy') not found. Set WORKBUDDY_BIN or install WorkBuddy AI.")
 
     def _find_node(self) -> str:
         node = shutil.which("node")
