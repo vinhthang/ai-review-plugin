@@ -36,6 +36,11 @@ from review.engines import (
     ReviewEngineAdapter,
     WorkBuddyAdapter,
     CodexAdapter,
+    ArgonWebAdapter,
+    ENGINE_REGISTRY,
+    register_engine,
+    get_engine_adapter,
+    get_supported_engines,
     resolve_engine,
 )
 from review.remediation import sanitize_prior_review

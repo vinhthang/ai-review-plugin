@@ -92,7 +92,7 @@ def test_prior_review_injection_in_prompt(mock_popen, target_and_repo, tmp_path)
     prompt_file = mock_popen.call_args[0][0][-1]
     assert "<prior_review_context>" in prompt_file
     assert "Prior critical defect in architecture." in prompt_file
-    assert "Verify whether previously flagged P0/P1 issues were legitimately resolved" in prompt_file
+    assert "Evaluate whether previously flagged P0/P1 issues were legitimately resolved" in prompt_file
 
 
 @patch("peer_review.subprocess.Popen")
