@@ -3,6 +3,7 @@
 **Feature ID:** `2026-10-09-spec-gate-enforcement`  
 **Governing Specification:** [`spec.md`](./spec.md)  
 **Status:** Approved by Human Gate  
+**Addresses Requirements:** `REQ-031`, `REQ-032`, `REQ-033`, `REQ-034`, `REQ-035`  
 
 ---
 

@@ -19,8 +19,14 @@ ADR_PATTERN = re.compile(r"\bADR-\d+\b")
 
 PLANNING_STATUSES = {"draft", "planning", "review"}
 EXECUTION_STATUSES = {"approved", "in-progress", "active"}
-TERMINAL_STATUSES = {"completed", "implemented", "done", "abandoned", "superseded"}
+VERIFIABLE_TERMINAL_STATUSES = {"completed", "implemented", "done"}
+TERMINAL_STATUSES = VERIFIABLE_TERMINAL_STATUSES | {"abandoned", "superseded"}
 ACTIVE_STATUSES = EXECUTION_STATUSES | PLANNING_STATUSES
+
+DECLARED_REQ_LINE_PATTERN = re.compile(
+    r"^(?:\s*#{1,6}\s+.*?|\s*[-*+]\s+(?:\*\*|`)*|\s*\|\s*`?)\b(REQ-\d+|FLOW-\d+|ALIGN-\d+)\b",
+    re.MULTILINE,
+)
 
 
 def normalize_status(raw: str) -> str:
@@ -33,6 +39,19 @@ def extract_requirement_ids(text: str) -> List[str]:
     matches = set(REQ_PATTERN.findall(text))
     filtered = {m for m in matches if m not in PLACEHOLDER_REQS}
     return sorted(list(filtered))
+
+
+def extract_declared_requirement_ids(spec_text: str) -> List[str]:
+    """Extract declared requirement IDs from headings, bullet lead-ins, or table cells.
+
+    Ignores historical or contextual mentions in prose paragraphs, falling back to
+    extract_requirement_ids(spec_text) only if no structured declarations exist.
+    """
+    matches = set(DECLARED_REQ_LINE_PATTERN.findall(spec_text))
+    filtered = {m for m in matches if m not in PLACEHOLDER_REQS}
+    if filtered:
+        return sorted(list(filtered))
+    return extract_requirement_ids(spec_text)
 
 
 def parse_specs_index(index_path: Union[Path, str]) -> List[Dict[str, str]]:
@@ -60,7 +79,7 @@ def parse_specs_index(index_path: Union[Path, str]) -> List[Dict[str, str]]:
         if col0.lower() == "feature id" or re.match(r"^:?-+:?$", col0):
             continue
 
-        if len(parts) < 6:
+        if len(parts) != 6:
             raise ValueError(
                 f"Malformed table row at line {line_idx} (expected 6 columns, got {len(parts)}): {line}"
             )
@@ -123,7 +142,7 @@ def validate_spec_package(
             return False, f"Specification file is empty: {req_file}"
         contents[req_file] = content
 
-    spec_reqs = extract_requirement_ids(contents["spec.md"])
+    spec_reqs = extract_declared_requirement_ids(contents["spec.md"])
     if not spec_reqs:
         return False, "spec.md does not contain any valid requirement pattern (REQ-\\d+, FLOW-\\d+, ALIGN-\\d+)"
 
@@ -148,12 +167,6 @@ def validate_spec_package(
     for doc in trace_docs:
         doc_content = contents[doc]
         doc_reqs = set(extract_requirement_ids(doc_content))
-        # If design.md explicitly references governing specification, inherit coverage from spec.md
-        if doc == "design.md" and (
-            re.search(r"Governing Specification:.*spec\.md", doc_content, re.IGNORECASE)
-            or re.search(r"\[Governing Specification\]\((?:\./)?spec\.md\)", doc_content, re.IGNORECASE)
-        ):
-            continue
         missing = [r for r in spec_reqs if r not in doc_reqs]
         if missing:
             return False, f"{doc} is missing requirement IDs declared in spec.md: {', '.join(missing)}"
@@ -224,8 +237,19 @@ def verify_active_specification(
 
     exec_specs = [r for r in records if normalize_status(r.get("status", "")) in EXECUTION_STATUSES]
     plan_specs = [r for r in records if normalize_status(r.get("status", "")) in PLANNING_STATUSES]
+    verifiable_term_specs = [
+        r for r in records if normalize_status(r.get("status", "")) in VERIFIABLE_TERMINAL_STATUSES
+    ]
 
-    target_specs = exec_specs + plan_specs
+    if verify_evidence:
+        target_specs = exec_specs + plan_specs + verifiable_term_specs
+    elif feature_id is not None:
+        target_specs = exec_specs + plan_specs
+        if not target_specs and verifiable_term_specs:
+            target_specs = verifiable_term_specs
+    else:
+        target_specs = exec_specs + plan_specs
+
     if not target_specs:
         return {
             "status": "no_active_spec",
@@ -241,7 +265,11 @@ def verify_active_specification(
     for spec in target_specs:
         feat_id = spec.get("feature_id", "")
         spec_path_str = spec.get("spec_path", "")
-        is_exec = normalize_status(spec.get("status", "")) in EXECUTION_STATUSES
+        norm_status = normalize_status(spec.get("status", ""))
+        effective_verify_evidence = verify_evidence or (norm_status in VERIFIABLE_TERMINAL_STATUSES)
+        is_exec = norm_status in EXECUTION_STATUSES or (
+            norm_status in VERIFIABLE_TERMINAL_STATUSES and (feature_id is not None or verify_evidence)
+        )
 
         if ".." in feat_id or "/" in feat_id or "\\" in feat_id:
             return {
@@ -320,7 +348,7 @@ def verify_active_specification(
                 plan_errors.append(err_dict)
             continue
 
-        is_valid, err = validate_spec_package(pkg_dir, verify_evidence=verify_evidence)
+        is_valid, err = validate_spec_package(pkg_dir, verify_evidence=effective_verify_evidence)
         if not is_valid:
             err_dict = {
                 "status": "incomplete_package",
