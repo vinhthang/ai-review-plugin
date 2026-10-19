@@ -9,6 +9,7 @@ import uuid
 from typing import List, Dict, Tuple, Optional, Any
 
 from review.engines.base import ReviewEngineAdapter
+from review.models import extract_issue_description
 
 
 class ArgonWebAdapter(ReviewEngineAdapter):
@@ -115,16 +116,11 @@ class ArgonWebAdapter(ReviewEngineAdapter):
             else:
                 severity = "P1"
 
-            description = item.get("description", "")
-            if not description:
-                for alt_key in ("details", "message", "summary", "finding", "title", "comment", "text", "note"):
-                    if alt_key in item and item[alt_key]:
-                        description = str(item[alt_key])
-                        break
-            if description and isinstance(description, str) and description.strip():
+            description = extract_issue_description(item)
+            if description:
                 cleaned.append({
                     "severity": severity,
-                    "description": description.strip()
+                    "description": description
                 })
         return {"issues": cleaned}
 

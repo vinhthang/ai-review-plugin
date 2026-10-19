@@ -172,6 +172,18 @@ class TestSpecChecker(unittest.TestCase):
         self.assertEqual(proc_quiet.returncode, 0)
         self.assertEqual(proc_quiet.stdout.strip(), "")
 
+    def test_resolve_package_dir(self):
+        """Test single-signature resolve_package_dir (REQ-013)."""
+        from spec_checker import resolve_package_dir
+        specs_dir = self.workspace / "docs" / "specs"
+        pkg_dir = specs_dir / "my-feature"
+        pkg_dir.mkdir(parents=True)
+
+        spec_dict = {"feature_id": "my-feature", "spec_path": "./my-feature/spec.md"}
+        resolved, err = resolve_package_dir(spec_dict, self.workspace, specs_dir)
+        self.assertIsNone(err)
+        self.assertEqual(resolved, pkg_dir.resolve())
+
 
 if __name__ == "__main__":
     unittest.main()

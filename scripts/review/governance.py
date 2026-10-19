@@ -38,7 +38,9 @@ def update_index_catalog(repo_root: str, feature_id: str, status: str, review_li
         return False
 
     row = match.group(0)
-    cols = [col.strip() for col in row.split("|")[1:-1]]
+    trimmed = row.strip()
+    raw_cols = re.split(r"(?<!\\)\|", trimmed[1:-1])
+    cols = [col.strip() for col in raw_cols]
     if len(cols) >= 6:
         cols[2] = status
         cols[5] = f"[{cols[5].split(']')[0][1:]}]({review_link})"

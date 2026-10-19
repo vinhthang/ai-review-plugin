@@ -71,18 +71,21 @@ The companion code review skill performs a single-pass adversarial review on cod
 
 ## Modular Review Engine (`scripts/peer_review.py`)
 
-The plugin architecture is completely modularized under `scripts/review/`:
+The plugin architecture is modularized under `scripts/review/` (with all modules strictly `< 500` lines):
 - `review.audit`: CLI entrypoint, argument parsing, ADR context injection, and timeout management.
-- `review.engines`: Multi-engine adapters (`WorkBuddyAdapter` with `deepseek-v4.1-flash` default, and `CodexAdapter`).
-- `review.models`: Strict JSON schema validation, issue severity normalization (`P0`, `P1`, `P2`), and envelope formatting.
+- `review.prompts`: Multi-mode review prompt construction (`spec`, `design`, `code`) and prior-review context formatting.
+- `review.engines`: Pluggable multi-engine adapters (`WorkBuddyAdapter` with `deepseek-v4.1-flash` default, `ArgonWebAdapter` for web-based Argon reviews, and `CodexAdapter`).
+- `review.runners`: Browser automation and CDP transport (`edge_applescript_runner.py` and `cdp_client.py`).
+- `review.models`: Strict JSON schema validation, unified `extract_issue_description()`, issue severity normalization (`P0`, `P1`, `P2`), and envelope formatting.
 - `review.remediation`: Sanitization of prior review context to prevent instruction injection.
 - `review.fsm`: State machine transitions (`AUDIT`, `REMEDIATION`, `GOVERNANCE`).
-- `review.governance`: ADR indexing and requirement traceability validation.
+- `review.governance`: Escaped-pipe-aware `INDEX.md` catalog updates and requirement traceability validation.
+- `scripts/spec_checker.py` & `scripts/semantic_checker.py`: Synchronized specification and SHA-256 content-hashed Opus semantic traceability verification.
 
 ### CLI Parameters
 
 ```bash
-scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [--spec <path>] [--no-spec] [--engine <workbuddy|codex>] [--model <model>] [--output-file <path>]
+scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [--spec <path>] [--no-spec] [--engine <workbuddy|argon|codex>] [--model <model>] [--output-file <path>]
 ```
 
 | Parameter | Type | Required | Description |
@@ -92,7 +95,7 @@ scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [
 | `--repo` | String | Yes | Repository root directory to mirror for context. |
 | `--spec` | String | Conditional | Path to governing specification file. Required in `--mode design` unless `--no-spec` is passed. Forbidden in `--mode spec` and `--mode code`. |
 | `--no-spec` | Flag | Conditional | Standalone plan review flag without governing specification. Mutually exclusive with `--spec`. Forbidden in `--mode spec` and `--mode code`. |
-| `--engine` | Enum | Optional | Review engine adapter: `workbuddy` (default) or `codex`. |
+| `--engine` | Enum | Optional | Review engine adapter: `workbuddy` (default), `argon`, or `codex`. |
 | `--model` | String | Optional | Model identifier/alias (default: `deepseek-v4.1-flash` for WorkBuddy). |
 | `--output-file` | String | Optional | Path to write formatted review JSON envelope atomically with `0o600` permissions. |
 | `--message` | String | Optional | Follow-up message, fix summary, or technical rebuttal. |

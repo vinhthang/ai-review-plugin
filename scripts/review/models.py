@@ -69,3 +69,29 @@ def sanitize_diagnostics(text: str, max_chars: int = 2000) -> str:
     if len(redacted) > max_chars:
         return redacted[:max_chars] + "\n[... truncated diagnostic output ...]"
     return redacted
+
+
+ISSUE_DESCRIPTION_FALLBACK_KEYS = (
+    "description",
+    "details",
+    "message",
+    "summary",
+    "finding",
+    "issue",
+    "problem",
+    "reason",
+    "explanation",
+    "title",
+    "comment",
+    "text",
+    "note",
+)
+
+
+def extract_issue_description(item: Dict[str, Any]) -> str:
+    for key in ISSUE_DESCRIPTION_FALLBACK_KEYS:
+        val = item.get(key)
+        if val and str(val).strip():
+            return str(val).strip()
+    return ""
+

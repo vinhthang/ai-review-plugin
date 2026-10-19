@@ -13,6 +13,18 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from semantic_checker import (
+        compute_spec_package_hash,
+        validate_semantic_traceability,
+    )
+except ImportError:
+    from scripts.semantic_checker import (
+        compute_spec_package_hash,
+        validate_semantic_traceability,
+    )
+
 REQ_PATTERN = re.compile(r"\b(REQ-\d+|FLOW-\d+|ALIGN-\d+)\b")
 PLACEHOLDER_REQS = {"REQ-XXX", "REQ-xxx"}
 ADR_PATTERN = re.compile(r"\bADR-\d+\b")
@@ -54,17 +66,12 @@ def extract_declared_requirement_ids(spec_text: str) -> List[str]:
     return extract_requirement_ids(spec_text)
 
 
-def parse_specs_index(index_path: Union[Path, str]) -> List[Dict[str, str]]:
-    """Parse markdown table rows in docs/specs/INDEX.md into structured dicts.
+def parse_specs_index_text(content: str) -> List[Dict[str, str]]:
+    """Parse markdown table rows in docs/specs/INDEX.md content into structured dicts.
 
     Keys returned: feature_id, title, status, req_range, key_decisions, spec_path.
-    Handles escaped pipes (\\|) inside table cells safely.
+    Handles escaped pipes (\\|) inside table cells safely. Raises ValueError on malformed rows.
     """
-    path = Path(index_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Index file not found: {path}")
-
-    content = path.read_text(encoding="utf-8")
     records: List[Dict[str, str]] = []
 
     for line_idx, line in enumerate(content.splitlines(), start=1):
@@ -110,6 +117,14 @@ def parse_specs_index(index_path: Union[Path, str]) -> List[Dict[str, str]]:
     return records
 
 
+def parse_specs_index(index_path: Union[Path, str]) -> List[Dict[str, str]]:
+    """Parse markdown table rows in docs/specs/INDEX.md into structured dicts."""
+    path = Path(index_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Index file not found: {path}")
+    return parse_specs_index_text(path.read_text(encoding="utf-8"))
+
+
 def get_active_specifications(records: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """Filter records for active status (case-insensitive in ACTIVE_STATUSES)."""
     return [r for r in records if normalize_status(r.get("status", "")) in ACTIVE_STATUSES]
@@ -118,6 +133,8 @@ def get_active_specifications(records: List[Dict[str, str]]) -> List[Dict[str, s
 def validate_spec_package(
     package_dir: Union[Path, str],
     verify_evidence: bool = False,
+    require_semantic: bool = False,
+    run_semantic_agent: bool = False,
 ) -> Tuple[bool, str]:
     """Check that spec.md, decisions.md, design.md, and tasks.md exist and contain non-whitespace text.
 
@@ -130,15 +147,13 @@ def validate_spec_package(
     if not pkg.exists() or not pkg.is_dir():
         return False, f"Package directory not found: {pkg}"
 
-    # Verify core documents first
-    core_files = ["spec.md", "decisions.md", "design.md"]
     contents: Dict[str, str] = {}
-    for req_file in core_files:
+    for req_file in ["spec.md", "decisions.md", "design.md"]:
         target = pkg / req_file
-        if not target.exists() or not target.is_file():
+        if not target.is_file():
             return False, f"Missing required specification file: {req_file}"
         content = target.read_text(encoding="utf-8")
-        if len(content.strip()) == 0:
+        if not content.strip():
             return False, f"Specification file is empty: {req_file}"
         contents[req_file] = content
 
@@ -146,17 +161,12 @@ def validate_spec_package(
     if not spec_reqs:
         return False, "spec.md does not contain any valid requirement pattern (REQ-\\d+, FLOW-\\d+, ALIGN-\\d+)"
 
-    # Verify tasks.md and optional verification.md
-    additional_files = ["tasks.md"]
-    if verify_evidence:
-        additional_files.append("verification.md")
-
-    for req_file in additional_files:
+    for req_file in (["tasks.md", "verification.md"] if verify_evidence else ["tasks.md"]):
         target = pkg / req_file
-        if not target.exists() or not target.is_file():
+        if not target.is_file():
             return False, f"Missing required specification file: {req_file}"
         content = target.read_text(encoding="utf-8")
-        if len(content.strip()) == 0:
+        if not content.strip():
             return False, f"Specification file is empty: {req_file}"
         contents[req_file] = content
 
@@ -178,7 +188,62 @@ def validate_spec_package(
     if not has_adr and not has_spec_req:
         return False, "decisions.md must contain at least one ADR-\\d+ or declared requirement ID"
 
+    if require_semantic or run_semantic_agent or (pkg / "traceability_audit.json").is_file():
+        sem_ok, sem_err = validate_semantic_traceability(
+            pkg,
+            spec_reqs=spec_reqs,
+            verify_evidence=verify_evidence,
+            run_agent=run_semantic_agent,
+        )
+        if not sem_ok:
+            return False, sem_err
+
     return True, ""
+
+
+def resolve_package_dir(
+    spec: Dict[str, str],
+    root: Union[Path, str],
+    specs_dir: Optional[Union[Path, str]] = None,
+) -> Tuple[Optional[Path], Optional[str]]:
+    """Resolve candidate specification package directory and check path containment.
+
+    Returns (pkg_dir, None) on success,
+    (None, "invalid_path:...") on traversal or outside-root violation,
+    or (None, "missing_dir:...") if no candidate directory exists.
+    """
+    root_path = Path(root).resolve()
+    s_dir = Path(specs_dir).resolve() if specs_dir is not None else (root_path / "docs" / "specs")
+    feat_id = spec.get("feature_id", "")
+    spec_path_str = spec.get("spec_path", "")
+
+    if ".." in feat_id or "/" in feat_id or "\\" in feat_id:
+        return None, f"invalid_path:Feature ID '{feat_id}' contains invalid path characters"
+
+    candidates: List[Path] = [s_dir / feat_id] if feat_id else []
+    if spec_path_str:
+        try:
+            p1 = (s_dir / spec_path_str).resolve()
+            p2 = (root_path / spec_path_str).resolve()
+            if not p1.is_relative_to(root_path) or not p2.is_relative_to(root_path):
+                return None, f"invalid_path:Specification candidate path for feature '{feat_id}' escapes workspace root"
+        except (ValueError, RuntimeError):
+            return None, f"invalid_path:Specification candidate path for feature '{feat_id}' escapes workspace root"
+
+        candidates.extend([p.parent if p.is_file() else p for p in (p1, p2) if p.is_file() or p.is_dir()])
+
+    for cand in candidates:
+        try:
+            if not cand.resolve().is_relative_to(root_path):
+                return None, f"invalid_path:Specification candidate path for feature '{feat_id}' escapes workspace root"
+        except (ValueError, RuntimeError):
+            return None, f"invalid_path:Specification candidate path for feature '{feat_id}' escapes workspace root"
+
+    for cand in candidates:
+        if cand.is_dir():
+            return cand, None
+
+    return None, f"missing_dir:Package directory for feature '{feat_id}' not found"
 
 
 def verify_active_specification(
@@ -186,6 +251,8 @@ def verify_active_specification(
     require_approved: bool = True,
     feature_id: Optional[str] = None,
     verify_evidence: bool = False,
+    require_semantic: bool = False,
+    run_semantic_agent: bool = False,
 ) -> Dict[str, Any]:
     """Verify that an active and complete specification package exists in workspace.
 
@@ -203,37 +270,21 @@ def verify_active_specification(
     specs_dir = root / "docs" / "specs"
 
     if not specs_dir.exists() or not specs_dir.is_dir():
-        return {
-            "status": "no_spec_framework",
-            "valid": True,
-            "reason": "No docs/specs directory in workspace",
-        }
+        return {"status": "no_spec_framework", "valid": True, "reason": "No docs/specs directory in workspace"}
 
     index_path = specs_dir / "INDEX.md"
-    if not index_path.exists() or not index_path.is_file():
-        return {
-            "status": "invalid",
-            "valid": False,
-            "reason": "Missing docs/specs/INDEX.md",
-        }
+    if not index_path.is_file():
+        return {"status": "invalid", "valid": False, "reason": "Missing docs/specs/INDEX.md"}
 
     try:
         records = parse_specs_index(index_path)
     except Exception as exc:
-        return {
-            "status": "corrupt_index",
-            "valid": False,
-            "reason": f"Failed to parse docs/specs/INDEX.md: {exc}",
-        }
+        return {"status": "corrupt_index", "valid": False, "reason": f"Failed to parse docs/specs/INDEX.md: {exc}"}
 
     if feature_id is not None:
         records = [r for r in records if r.get("feature_id") == feature_id]
         if not records:
-            return {
-                "status": "feature_not_found",
-                "valid": False,
-                "reason": f"Feature '{feature_id}' not found in docs/specs/INDEX.md",
-            }
+            return {"status": "feature_not_found", "valid": False, "reason": f"Feature '{feature_id}' not found in docs/specs/INDEX.md"}
 
     exec_specs = [r for r in records if normalize_status(r.get("status", "")) in EXECUTION_STATUSES]
     plan_specs = [r for r in records if normalize_status(r.get("status", "")) in PLANNING_STATUSES]
@@ -241,21 +292,12 @@ def verify_active_specification(
         r for r in records if normalize_status(r.get("status", "")) in VERIFIABLE_TERMINAL_STATUSES
     ]
 
-    if verify_evidence:
-        target_specs = exec_specs + plan_specs + verifiable_term_specs
-    elif feature_id is not None:
-        target_specs = exec_specs + plan_specs
-        if not target_specs and verifiable_term_specs:
-            target_specs = verifiable_term_specs
-    else:
-        target_specs = exec_specs + plan_specs
+    target_specs = exec_specs + plan_specs
+    if verify_evidence or (feature_id is not None and not target_specs):
+        target_specs += verifiable_term_specs
 
     if not target_specs:
-        return {
-            "status": "no_active_spec",
-            "valid": False,
-            "reason": "No active specification found in docs/specs/INDEX.md",
-        }
+        return {"status": "no_active_spec", "valid": False, "reason": "No active specification found in docs/specs/INDEX.md"}
 
     valid_exec_features: List[str] = []
     valid_plan_features: List[str] = []
@@ -264,160 +306,61 @@ def verify_active_specification(
 
     for spec in target_specs:
         feat_id = spec.get("feature_id", "")
-        spec_path_str = spec.get("spec_path", "")
         norm_status = normalize_status(spec.get("status", ""))
         effective_verify_evidence = verify_evidence or (norm_status in VERIFIABLE_TERMINAL_STATUSES)
         is_exec = norm_status in EXECUTION_STATUSES or (
             norm_status in VERIFIABLE_TERMINAL_STATUSES and (feature_id is not None or verify_evidence)
         )
 
-        if ".." in feat_id or "/" in feat_id or "\\" in feat_id:
-            return {
-                "status": "invalid_path",
-                "valid": False,
-                "feature_id": feat_id,
-                "reason": f"Feature ID '{feat_id}' contains invalid path characters",
-            }
-
-        candidates: List[Path] = []
-        if feat_id:
-            candidates.append(specs_dir / feat_id)
-        if spec_path_str:
-            try:
-                p1 = (specs_dir / spec_path_str).resolve()
-                p2 = (root / spec_path_str).resolve()
-                if not p1.is_relative_to(root) or not p2.is_relative_to(root):
-                    return {
-                        "status": "invalid_path",
-                        "valid": False,
-                        "feature_id": feat_id,
-                        "reason": f"Specification candidate path for feature '{feat_id}' escapes workspace root",
-                    }
-            except (ValueError, RuntimeError):
-                return {
-                    "status": "invalid_path",
-                    "valid": False,
-                    "feature_id": feat_id,
-                    "reason": f"Specification candidate path for feature '{feat_id}' escapes workspace root",
-                }
-
-            if p1.is_file():
-                candidates.append(p1.parent)
-            elif p1.is_dir():
-                candidates.append(p1)
-
-            if p2.is_file():
-                candidates.append(p2.parent)
-            elif p2.is_dir():
-                candidates.append(p2)
-
-        escaped = False
-        for cand in candidates:
-            try:
-                if not cand.resolve().is_relative_to(root):
-                    escaped = True
-                    break
-            except (ValueError, RuntimeError):
-                escaped = True
-                break
-
-        if escaped:
-            return {
-                "status": "invalid_path",
-                "valid": False,
-                "feature_id": feat_id,
-                "reason": f"Specification candidate path for feature '{feat_id}' escapes workspace root",
-            }
-
-        pkg_dir: Optional[Path] = None
-        for cand in candidates:
-            if cand.exists() and cand.is_dir():
-                pkg_dir = cand
-                break
-
-        if not pkg_dir:
-            err_dict = {
-                "status": "incomplete_package",
-                "valid": False,
-                "feature_id": feat_id,
-                "reason": f"Package directory for feature '{feat_id}' not found",
-            }
-            if is_exec:
-                exec_errors.append(err_dict)
-            else:
-                plan_errors.append(err_dict)
+        pkg_dir, resolve_err = resolve_package_dir(spec, root, specs_dir)
+        if resolve_err:
+            if resolve_err.startswith("invalid_path:"):
+                return {"status": "invalid_path", "valid": False, "feature_id": feat_id, "reason": resolve_err.split(":", 1)[1]}
+            err_dict = {"status": "incomplete_package", "valid": False, "feature_id": feat_id, "reason": resolve_err.split(":", 1)[1]}
+            (exec_errors if is_exec else plan_errors).append(err_dict)
             continue
 
-        is_valid, err = validate_spec_package(pkg_dir, verify_evidence=effective_verify_evidence)
+        is_valid, err = validate_spec_package(
+            pkg_dir,
+            verify_evidence=effective_verify_evidence,
+            require_semantic=require_semantic,
+            run_semantic_agent=run_semantic_agent,
+        )
         if not is_valid:
-            err_dict = {
-                "status": "incomplete_package",
-                "valid": False,
-                "feature_id": feat_id,
-                "reason": err,
-            }
-            if is_exec:
-                exec_errors.append(err_dict)
-            else:
-                plan_errors.append(err_dict)
+            err_dict = {"status": "incomplete_package", "valid": False, "feature_id": feat_id, "reason": err}
+            (exec_errors if is_exec else plan_errors).append(err_dict)
             continue
 
-        if is_exec:
-            valid_exec_features.append(feat_id)
-        else:
-            valid_plan_features.append(feat_id)
+        (valid_exec_features if is_exec else valid_plan_features).append(feat_id)
 
     if require_approved:
         if exec_errors:
             return exec_errors[0]
-
         if valid_exec_features:
-            res: Dict[str, Any] = {
-                "status": "valid",
-                "valid": True,
-                "active_features": valid_exec_features,
-            }
+            res: Dict[str, Any] = {"status": "valid", "valid": True, "active_features": valid_exec_features}
             if plan_errors:
                 res["warnings"] = plan_errors
             return res
-
         if plan_errors:
             return plan_errors[0]
-
         if valid_plan_features:
             return {
                 "status": "unapproved_spec",
                 "valid": False,
                 "reason": "Specification exists in planning/draft status but is not yet approved (status must be Approved, In-Progress, or Active).",
             }
+        return {"status": "no_active_spec", "valid": False, "reason": "No active specification found in docs/specs/INDEX.md"}
 
-        return {
-            "status": "no_active_spec",
-            "valid": False,
-            "reason": "No active specification found in docs/specs/INDEX.md",
-        }
-    else:
-        all_valid = valid_exec_features + valid_plan_features
-        all_errors = exec_errors + plan_errors
-
-        if all_valid:
-            res = {
-                "status": "valid",
-                "valid": True,
-                "active_features": all_valid,
-            }
-            if all_errors:
-                res["warnings"] = all_errors
-            return res
-
+    all_valid = valid_exec_features + valid_plan_features
+    all_errors = exec_errors + plan_errors
+    if all_valid:
+        res = {"status": "valid", "valid": True, "active_features": all_valid}
         if all_errors:
-            return all_errors[0]
-
-        return {
-            "status": "no_active_spec",
-            "valid": False,
-            "reason": "No active specification found in docs/specs/INDEX.md",
-        }
+            res["warnings"] = all_errors
+        return res
+    if all_errors:
+        return all_errors[0]
+    return {"status": "no_active_spec", "valid": False, "reason": "No active specification found in docs/specs/INDEX.md"}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -433,22 +376,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=os.getcwd(),
         help="Workspace root directory to verify (default: current working directory)",
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit structured verification report as JSON",
-    )
-    parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Suppress textual diagnostic messages",
-    )
-    for flag_opt, flag_kwargs in [
-        ("--feature", {"default": None, "help": "Validate a specific feature ID"}),
-        ("--allow-planning", {"action": "store_true", "help": "Permit planning-status specifications (require_approved=False)"}),
-        ("--verify-evidence", {"action": "store_true", "help": "Verify verification.md requirement ID coverage"}),
-    ]:
-        parser.add_argument(flag_opt, **flag_kwargs)
+    parser.add_argument("--json", action="store_true", help="Emit structured verification report as JSON")
+    parser.add_argument("--quiet", action="store_true", help="Suppress textual diagnostic messages")
+    parser.add_argument("--feature", default=None, help="Validate a specific feature ID")
+    parser.add_argument("--allow-planning", action="store_true", help="Permit planning-status specifications")
+    parser.add_argument("--verify-evidence", action="store_true", help="Verify verification.md requirement ID coverage")
+    parser.add_argument("--semantic", action="store_true", help="Enforce semantic traceability verification")
     args = parser.parse_args(argv)
 
     try:
@@ -457,6 +390,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             require_approved=not args.allow_planning,
             feature_id=args.feature,
             verify_evidence=args.verify_evidence,
+            require_semantic=args.semantic,
+            run_semantic_agent=args.semantic,
         )
     except Exception as exc:
         if args.json:
