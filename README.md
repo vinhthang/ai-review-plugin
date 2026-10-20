@@ -85,7 +85,7 @@ The plugin architecture is modularized under `scripts/review/` (with all modules
 ### CLI Parameters
 
 ```bash
-scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [--spec <path>] [--no-spec] [--engine <workbuddy|argon|codex>] [--model <model>] [--output-file <path>]
+scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [--dimension <all|inv|dom>] [--spec <path>] [--no-spec] [--engine <workbuddy|argon|codex>] [--model <model>] [--output-file <path>]
 ```
 
 | Parameter | Type | Required | Description |
@@ -93,6 +93,7 @@ scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [
 | `--target` | String | Yes | Path to file under review (`spec.md`, `design.md`, or diff). |
 | `--mode` | Enum | Yes | Review mode: `spec`, `design`, or `code`. |
 | `--repo` | String | Yes | Repository root directory to mirror for context. |
+| `--dimension` | Enum | Optional | Review dimension: `all` (default), `inv` (invariants only), or `dom` (domain completeness only). |
 | `--spec` | String | Conditional | Path to governing specification file. Required in `--mode design` unless `--no-spec` is passed. Forbidden in `--mode spec` and `--mode code`. |
 | `--no-spec` | Flag | Conditional | Standalone plan review flag without governing specification. Mutually exclusive with `--spec`. Forbidden in `--mode spec` and `--mode code`. |
 | `--engine` | Enum | Optional | Review engine adapter: `workbuddy` (default), `argon`, or `codex`. |
@@ -119,6 +120,8 @@ scripts/peer_review.py --target <path> --mode <design|code|spec> --repo <path> [
 - **PermissionError Guard**: Catches `(ProcessLookupError, PermissionError)` on all `os.killpg` calls to guard against recycled foreign PIDs.
 - **Isolated Session Group**: Launches child processes with `start_new_session=True` so `os.killpg` targets an isolated session process group without leaking grandchildren.
 - **Rsync Fallback**: If `rsync` is missing or fails in minimal environments, falls back gracefully to `shutil.copytree` excluding `.git`, `.gemini`, and `AGENTS.md`.
+- **Blind Evaluator Sandbox & Verdict Anti-Leak Tripwire (`REQ-045`)**: `prepare_repo_sandbox()` strips `VERDICT_LEAK_FILES` (`review.md`, `SELF_REVIEW.md`, `REVERIFICATION_REPORT.md`, `architecture_review.md`, `traceability_audit.json`, `review_round_*.md`) and enforces `assert_no_verdict_leaks()`.
+- **Always-On Governance Rule (`rules/AGENTS.md`, `REQ-047`)**: Enforces sandbox isolation, orthogonal review dimensions, and explicit triggers for `spec-review`, `design-review`, and `code-review`.
 
 ---
 

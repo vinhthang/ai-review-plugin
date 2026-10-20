@@ -86,3 +86,9 @@ stateDiagram-v2
     Retry --> [*]
     Abort --> [*]
 ```
+
+
+---
+
+## Requirement Traceability Matrix
+- `REQ-021`, `REQ-022`, `REQ-023`, `REQ-024`, `REQ-025`: Pure semantic lifecycle decomposition (Audit, Remediation, Governance), bounded remediation loops, stateless technical rebuttals, versioned archival, and skill conformance.

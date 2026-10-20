@@ -112,6 +112,13 @@ def build_adr_context(repo: str, target_content: str, spec_content: str, max_cha
     return "\n\n".join(e[1] for e in selected)
 
 
+DIMENSION_FOCUS_PROMPTS = {
+    'all': '',
+    'inv': '\nFocus strictly on **Structural Invariants (INV)**: architecture boundaries, requirement ID traceability (`REQ-xxx`), security/sandbox boundaries, state-machine contracts, and failure handling. Do NOT report stylistic or domain preferences.\n',
+    'dom': '\nFocus strictly on **Domain Completeness & Ergonomics (DOM)**: domain edge cases, API usability, completeness of business logic, and test assertion realism.\n',
+}
+
+
 def build_review_prompt(
     mode: str,
     target_copy: str,
@@ -125,10 +132,13 @@ def build_review_prompt(
     diagnostic_text: Optional[str] = None,
     message: Optional[str] = None,
     has_spec: Optional[bool] = None,
+    dimension: str = "all",
 ) -> str:
     """Construct deterministic multi-mode review prompt."""
     if has_spec is None:
         has_spec = bool(spec_path and mode == "design")
+
+    dimension_focus = DIMENSION_FOCUS_PROMPTS.get(dimension, "")
 
     prompt_lines = [
         f"Perform a {mode} review of this file: " + target_copy,
@@ -137,11 +147,15 @@ def build_review_prompt(
         "Severity Guidelines:",
         "- Use severity P0 or P1 for functional, architectural, security, or correctness defects (these block execution).",
         "- Use severity P2 for advisory or style feedback only.",
+    ]
+    if dimension_focus:
+        prompt_lines.append(dimension_focus)
+    prompt_lines.extend([
         "",
         f'<target_artifact path="{os.path.basename(target_path)}">',
         target_content,
         "</target_artifact>",
-    ]
+    ])
 
     if spec_content and spec_path:
         prompt_lines.extend([
@@ -250,3 +264,6 @@ def build_review_prompt(
         prompt_lines.append("\nMessage: " + message)
 
     return "\n".join(prompt_lines)
+
+
+build_audit_prompt = build_review_prompt

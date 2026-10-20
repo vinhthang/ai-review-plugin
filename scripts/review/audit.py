@@ -1,5 +1,6 @@
 """Audit Stage: Target resolution, prompt generation, review execution, and verdict evaluation."""
 import argparse
+import fnmatch
 import json
 import os
 import shutil
@@ -11,50 +12,89 @@ import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from review.models import (
-        SCHEMA,
-        extract_issue_description,
-        format_review_envelope,
-        sanitize_diagnostics,
-    )
+    from review.models import SCHEMA, extract_issue_description, format_review_envelope, sanitize_diagnostics
     from review.engines import get_engine_adapter, resolve_engine
     from review.prompts import (
-        build_adr_context,
-        build_review_prompt,
-        load_diagnostic_text,
-        load_prior_review_text,
+        build_adr_context, build_review_prompt, build_audit_prompt, load_diagnostic_text, load_prior_review_text,
     )
 except ImportError:
-    from scripts.review.models import (
-        SCHEMA,
-        extract_issue_description,
-        format_review_envelope,
-        sanitize_diagnostics,
-    )
+    from scripts.review.models import SCHEMA, extract_issue_description, format_review_envelope, sanitize_diagnostics
     from scripts.review.engines import get_engine_adapter, resolve_engine
     from scripts.review.prompts import (
-        build_adr_context,
-        build_review_prompt,
-        load_diagnostic_text,
-        load_prior_review_text,
+        build_adr_context, build_review_prompt, build_audit_prompt, load_diagnostic_text, load_prior_review_text,
     )
 
+VERDICT_LEAK_FILES: frozenset[str] = frozenset({
+    "review.md",
+    "SELF_REVIEW.md",
+    "REVERIFICATION_REPORT.md",
+    "architecture_review.md",
+    "traceability_audit.json",
+})
 
-def prepare_repo_sandbox(repo: str, work_dir: str) -> str:
-    """Create a sandbox copy of repo in work_dir excluding VCS and build artifacts."""
+
+def is_verdict_leak_file(filename: str, allowed_names: frozenset[str] = frozenset()) -> bool:
+    if filename in (VERDICT_LEAK_FILES - allowed_names):
+        return True
+    if fnmatch.fnmatch(filename, "review_round_*.md") and filename not in allowed_names:
+        return True
+    return False
+
+
+def assert_no_verdict_leaks(sandbox_dir: str, allowed_names: frozenset[str] = frozenset(), **kwargs) -> None:
+    """Walk sandbox_dir (skipping .git) and raise ValueError if any verdict leak file exists."""
+    if "allowed_Names" in kwargs:
+        allowed_names = kwargs["allowed_Names"]
+    disallowed = VERDICT_LEAK_FILES - allowed_names
+    for root, dirs, files in os.walk(sandbox_dir):
+        if ".git" in dirs:
+            dirs.remove(".git")
+        for f in files:
+            if (f in disallowed) or (fnmatch.fnmatch(f, "review_round_*.md") and f not in allowed_names):
+                rel = os.path.relpath(os.path.join(root, f), sandbox_dir)
+                raise ValueError(f"Evaluator verdict leak in sandbox: {rel}")
+
+
+def prepare_repo_sandbox(repo: str, work_dir: Optional[str] = None) -> str:
+    """Create a sandbox copy of repo in work_dir excluding VCS, build artifacts, and verdict leak files."""
+    if work_dir is None:
+        work_dir = tempfile.mkdtemp(prefix="repo_sandbox_")
     repo_copy = os.path.join(work_dir, "repo")
     rsync_bin = shutil.which("rsync")
-    excludes = ["--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", "--exclude=target", "--exclude=node_modules"]
+    leak_excludes = [f"--exclude={f}" for f in sorted(VERDICT_LEAK_FILES)] + ["--exclude=review_round_*.md"]
+    excludes = ["--exclude=.git", "--exclude=.gemini", "--exclude=AGENTS.md", "--exclude=target", "--exclude=node_modules"] + leak_excludes
+
+    copied = False
     if rsync_bin:
         try:
             os.mkdir(repo_copy)
             subprocess.run([rsync_bin, "-a", *excludes, f"{repo}/", f"{repo_copy}/"], check=True)
-            return repo_copy
+            copied = True
         except (subprocess.CalledProcessError, OSError, ValueError) as e:
             print(f"Warning: rsync failed ({e}), falling back to shutil.copytree", file=sys.stderr)
             if os.path.exists(repo_copy):
                 shutil.rmtree(repo_copy)
-    shutil.copytree(repo, repo_copy, ignore=lambda p, names: {n for n in names if n in {".git", ".gemini", "AGENTS.md", "target", "node_modules"}}, dirs_exist_ok=True)
+    if not copied:
+        def ignore_filter(p, names):
+            ignored = {n for n in names if n in {".git", ".gemini", "AGENTS.md", "target", "node_modules"}}
+            for n in names:
+                if is_verdict_leak_file(n):
+                    ignored.add(n)
+            return ignored
+        shutil.copytree(repo, repo_copy, ignore=ignore_filter, dirs_exist_ok=True)
+
+    # Ensure all matching verdict leak files are removed after copying/cloning
+    for root, dirs, files in os.walk(repo_copy):
+        if ".git" in dirs:
+            dirs.remove(".git")
+        for f in files:
+            if is_verdict_leak_file(f):
+                try:
+                    os.remove(os.path.join(root, f))
+                except OSError as rm_err:
+                    _ = rm_err
+
+    assert_no_verdict_leaks(repo_copy)
     return repo_copy
 
 
@@ -131,8 +171,9 @@ def _write_output_file(output_file: str, review: Dict[str, Any]) -> None:
         sys.exit(2)
 
 
-def _main(argv=None):
-    parser = argparse.ArgumentParser(description="Multi-engine autonomous peer reviewer")
+def register_audit_parser(parser: Optional[argparse.ArgumentParser] = None) -> argparse.ArgumentParser:
+    if parser is None:
+        parser = argparse.ArgumentParser(description="Multi-engine autonomous peer reviewer")
     parser.add_argument("--target", required=True, help="Absolute path to target file")
     parser.add_argument("--mode", required=True, choices=["design", "code", "spec"])
     parser.add_argument("--repo", required=True, help="Absolute path to repo")
@@ -145,7 +186,12 @@ def _main(argv=None):
     parser.add_argument("--message", help="Instruction message to prepend to prompt")
     parser.add_argument("--diagnostic-context", help="Path to diagnostic context file")
     parser.add_argument("--prior-review", help="Optional path to prior review JSON")
-    args = parser.parse_args(argv[1:] if argv is not None else None)
+    parser.add_argument("--dimension", choices=["all", "inv", "dom"], default="all", help="Focus dimension")
+    return parser
+
+
+def run_audit(args: Any, *, dimension: Optional[str] = None) -> int:
+    effective_dimension = dimension or getattr(args, "dimension", "all")
 
     if args.spec and args.no_spec:
         print("Fatal: --spec and --no-spec are mutually exclusive.", file=sys.stderr)
@@ -234,39 +280,21 @@ def _main(argv=None):
             json.dump(SCHEMA, f)
 
         prompt_text = build_review_prompt(
-            mode=args.mode,
-            target_copy=target_copy,
-            target_path=target,
-            target_content=target_content,
-            spec_path=spec_path,
-            spec_content=spec_content,
-            spec_copy=spec_copy,
-            adr_content=adr_content,
-            prior_review_text=prior_review_text,
-            diagnostic_text=diagnostic_text,
-            message=args.message,
-            has_spec=bool(args.spec),
+            mode=args.mode, target_copy=target_copy, target_path=target, target_content=target_content,
+            spec_path=spec_path, spec_content=spec_content, spec_copy=spec_copy, adr_content=adr_content,
+            prior_review_text=prior_review_text, diagnostic_text=diagnostic_text, message=args.message,
+            has_spec=bool(args.spec), dimension=effective_dimension,
         )
 
         fout_path, ferr_path = os.path.join(work_dir, "stdout.log"), os.path.join(work_dir, "stderr.log")
         cmd = adapter.build_command(
-            launcher_cmd=launcher_cmd,
-            repo_path=repo_copy,
-            schema_path=schema_path,
-            review_file_path=review_file,
-            prompt_text=prompt_text,
-            session_id=args.session_id,
-            model=args.model,
+            launcher_cmd=launcher_cmd, repo_path=repo_copy, schema_path=schema_path,
+            review_file_path=review_file, prompt_text=prompt_text, session_id=args.session_id, model=args.model,
         )
 
         execute_engine_process(
-            cmd=cmd,
-            repo_copy=repo_copy,
-            env=adapter.get_execution_environment(),
-            fout_path=fout_path,
-            ferr_path=ferr_path,
-            engine_name=engine_name,
-            timeout=1800,
+            cmd=cmd, repo_copy=repo_copy, env=adapter.get_execution_environment(),
+            fout_path=fout_path, ferr_path=ferr_path, engine_name=engine_name, timeout=1800,
         )
 
         review, formatted_session = adapter.extract_review_payload_and_session(
@@ -312,7 +340,14 @@ def _main(argv=None):
             _write_output_file(args.output_file, review)
 
         blocking_issues = [i for i in review["issues"] if i.get("severity") in ["P0", "P1"]]
-        sys.exit(0 if not blocking_issues else 1)
+        return 0 if not blocking_issues else 1
+
+
+def _main(argv=None):
+    parser = register_audit_parser()
+    args = parser.parse_args(argv[1:] if argv is not None else None)
+    code = run_audit(args, dimension=getattr(args, "dimension", "all"))
+    sys.exit(code)
 
 
 def main(argv=None):

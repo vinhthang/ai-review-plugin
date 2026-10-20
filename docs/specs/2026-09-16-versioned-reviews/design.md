@@ -12,3 +12,9 @@ This design realizes REQ-011 through REQ-020 by implementing stateless prior-rev
 ### 2. Recursive Review Discovery
 - `spec-review` skill searches `docs/superpowers/specs/**/spec.md` and `docs/superpowers/specs/*.md`.
 - `design-review` skill searches `docs/superpowers/specs/**/design.md` and `docs/superpowers/specs/*.md`.
+
+
+---
+
+## Requirement Traceability Matrix
+- `REQ-001`, `REQ-002`, `REQ-003`, `REQ-004`: Feature-scoped package layout, central `docs/specs/INDEX.md` registry, stateless `--prior-review` injection, and recursive spec discovery.

@@ -24,7 +24,7 @@ Every requirement declared in `spec.md` (`REQ-031` to `REQ-035`) is verified thr
 
 ### Scenario 1: Unspecified Subagent Interception (REQ-031, REQ-032)
 1. **Setup:** Create a temporary test workspace without `docs/specs/`.
-2. **Action:** Simulate Antigravity `PreToolUse` payload with `toolCall.name="invoke_subagent"` and `Subagents=[{"TypeName": "self", "Role": "Feature Dev", "Prompt": "Edit scripts/helper.py"}]`.
+2. **Action:** Simulate Antigravity `PreToolUse` payload with `toolCall.name="invoke_subagent"` and `Subagents=[{"TypeName": "self", "Role": "Feature Dev", "Prompt": "Edit scripts/peer_review.py"}]`.
 3. **Assertion:** `spec-gate.py` returns `{"decision": "deny"}` with diagnostic error message.
 
 ### Scenario 2: Research & Translation Exemption (REQ-031)
@@ -108,7 +108,7 @@ Pytest: 90 passed
 
 #### 4. Mechanical Pre-Tool Spec Gate Hook Unit Tests (REQ-031)
 ```bash
-$ rtk pytest tests/test_spec_gate.py  # antigravity-attention-guard-plugin
+$ rtk pytest /Users/thanghoang/.gemini/config/plugins/spec-driven-plugin/tests/test_spec_gate.py
 Pytest: 6 passed
 ```
 
