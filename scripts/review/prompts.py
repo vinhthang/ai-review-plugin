@@ -7,9 +7,11 @@ from typing import Any, Dict, Optional
 try:
     from review.models import sanitize_diagnostics
     from review.remediation import sanitize_prior_review
+    from review.rule_matcher import build_language_rules_context
 except ImportError:
     from scripts.review.models import sanitize_diagnostics
     from scripts.review.remediation import sanitize_prior_review
+    from scripts.review.rule_matcher import build_language_rules_context
 
 
 def load_diagnostic_text(diag_path: Optional[str], mode: str) -> Optional[str]:
@@ -225,6 +227,15 @@ def build_review_prompt(
             "- Do NOT demand that operational shell logic, multi-platform scripts, regex sanitizers, or system administration routines be inlined into Markdown documentation.\n"
             "- If an operational safety or validation check is missing, flag the defect against the underlying executable tool or script (in scripts/ or tools/), NOT against the Markdown documentation."
         )
+        prompt_lines.append(
+            "\nGround A / Ground B Self-Verification & Protected-Subject Guardrail:\n"
+            "- Ground A (Diff Scope Invariant): Never report an issue on symbols, functions, or constructs that do not appear in the subject file's diff.\n"
+            "- Ground B (No Literal Diff Contradiction): Before emitting any finding, verify that no line in the diff directly contradicts your claim (e.g., claiming a check, import, or identifier usage is missing when the diff contains it).\n"
+            "- Protected Categories: Prioritize memory safety, concurrency/race conditions, linkage/declaration consistency, and behavioral/compatibility regressions as blocking (P0/P1)."
+        )
+        rules_context = build_language_rules_context(target_content, target_path)
+        if rules_context:
+            prompt_lines.append(f"\n{rules_context}")
 
     if prior_review_text:
         prompt_lines.append(

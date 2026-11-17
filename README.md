@@ -58,20 +58,18 @@ An on-demand skill that validates implementation plans and enforces bidirectiona
 - **Explicit Human Approval Gate**: Halts at `APPROVAL_GATE` per `rules/explicit-approval.md` and `rules/reasoning-quality.md`. Once approved, delegates to `Antigravity /boost and invoke_subagent`.
 
 ### 3. `code-review`
-The companion code review skill performs a single-pass adversarial review on code changes:
-- **Two-Stage Delegation**: Flash subagent generates clean diff; Pro subagent conducts adversarial review (`attention-guard/rules/AGENTS.md`).
-- **Environment Safety**: Protects temporary `GIT_INDEX_FILE` cleanup with POSIX shell trap:
-  ```bash
-  trap 'unset GIT_INDEX_FILE; rm -f "$GIT_INDEX_FILE"' EXIT
-  ```
-- **Escalation Ceiling**: Tracks attempt count and transitions to `ESCALATE` if P0/P1 blockers remain unresolved after 5 attempts.
-- **Evidence Preservation**: Generates and preserves `review.md` in repository root, even when diff is empty.
+Fast, single-agent peer review on uncommitted, staged, or branch code changes—portable across Antigravity and OpenAI Codex with zero subagent or external engine overhead:
+- **3-Layer Context Collector (`skills/code-review/scripts/prepare_code_review.py` & `lint_runner.py`)**:
+  1. Auto-discovers repository-local style/linter configs (`checkstyle.xml`, `pmd.xml`, `.golangci.yml`, `go.mod` Go version, `pyproject.toml`, `.editorconfig`, `CONTRIBUTING.md`) using an isolated temporary `GIT_INDEX_FILE` that leaves `.git/index` and working files untouched.
+  2. Executes available fast read-only CLI linters scoped to changed files (`git diff --check`, `gofmt`, `go vet`, `golangci-lint`/`staticcheck`, `checkstyle`, `pmd`, `ruff`, `rustfmt --check`, `shellcheck`, `biome`/`eslint`, `actionlint`), with opt-in `--deep-lint` for build-tool checks (`mvn`/`gradle`, `cargo clippy`).
+  3. Injects deduplicated distilled industry standards (`scripts/review/rules/rule_docs/*.md`, covering Google Java + *Effective Java* 3e + Spring Boot test rules, Google/Uber Go + `*_test.go` checks, PEP 8 / Google Python, Google TS, and Rust API Guidelines).
+- **Zero Repo Pollution**: Reports `P0`/`P1`/`P2` findings directly in chat (or Brain Artifacts when extensive) without writing `review.md`, `review.json`, or `docs/adr/` into the repository.
 
 ---
 
 ## Modular Review Engine (`scripts/peer_review.py`)
 
-The plugin architecture is modularized under `scripts/review/` (with all modules strictly `< 500` lines):
+The spec/design engine architecture is organized under `scripts/review/`:
 - `review.audit`: CLI entrypoint, argument parsing, ADR context injection, and timeout management.
 - `review.prompts`: Multi-mode review prompt construction (`spec`, `design`, `code`) and prior-review context formatting.
 - `review.engines`: Pluggable multi-engine adapters (`WorkBuddyAdapter` with `deepseek-v4.1-flash` default, `ArgonWebAdapter` for web-based Argon reviews, and `CodexAdapter`).

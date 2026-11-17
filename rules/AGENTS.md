@@ -2,17 +2,18 @@
 
 <rule name="ai-review-governance">
 <description>
-Enforces adversarial, multi-engine autonomous peer reviews across specifications, architecture plans, and code implementations before production gating.
+Enforces rigorous architectural peer reviews for specifications and designs alongside fast, single-agent, zero-repo-pollution code reviews before production gating.
 </description>
 
 <constraints>
-- **Independent Sandbox Isolation**:
-  - All review passes must execute in isolated repo sandboxes with verdict leak tripwires (`assert_no_verdict_leaks`).
-  - Prior evaluation outcomes (`review.md`, `traceability_audit.json`, `SELF_REVIEW.md`, `architecture_review.md`, `REVERIFICATION_REPORT.md`) are excluded to avoid reviewer bias.
-- **Orthogonal Review Dimensions**:
-  - Review runs can isolate structural invariants (`inv`) from domain completeness (`dom`) via `--dimension`.
-- **Zero Suppression & Blocker Discipline**:
-  - P0/P1 issues block execution and require remediation or evidence-backed rebuttal before sign-off.
+- **Direct Single-Agent `code-review` & Zero Repo Pollution**:
+  - Execute `code-review` directly inside the active agent using `prepare_code_review.py` (local diff, repo-config discovery, scoped read-only CLI linters, and distilled language conventions) without spawning subagents or external review engines.
+  - Report `code-review` findings directly in chat (or Brain Artifacts when extensive); never write `review.md`, `review.json`, `.code-review/`, or `docs/adr/` files into target repositories.
+- **Sandbox Isolation for Engine-Backed Spec & Design Reviews**:
+  - Engine-backed `spec-review` and `design-review` passes (`scripts/peer_review.py`) execute in isolated repo sandboxes with verdict leak tripwires (`assert_no_verdict_leaks`).
+- **Orthogonal Review Dimensions & Blocker Discipline**:
+  - Reviews can isolate structural invariants (`inv`) from domain completeness (`dom`) via `--dimension`.
+  - `P0`/`P1` issues block sign-off and require code/spec remediation or evidence-backed rebuttal; `P2` findings are advisory.
 </constraints>
 
 <instructions>

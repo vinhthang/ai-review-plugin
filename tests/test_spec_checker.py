@@ -39,7 +39,8 @@ class TestSpecChecker(unittest.TestCase):
         res = verify_active_specification(repo_root)
         self.assertTrue(res.get("valid"))
         self.assertEqual(res.get("status"), "valid")
-        self.assertIn("2026-10-09-spec-gate-enforcement", res.get("active_features", []))
+        self.assertIn("2026-10-30-ocr-language-rules-integration", res.get("active_features", []))
+        self.assertIn("2026-11-18-single-agent-code-review", res.get("active_features", []))
 
     def test_no_spec_framework(self):
         """Workspace without docs/specs returns no_spec_framework and valid=True."""

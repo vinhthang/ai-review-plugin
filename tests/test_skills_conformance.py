@@ -93,59 +93,27 @@ def test_design_review_skill_conformance():
 def test_code_review_skill_conformance():
     skill_path = os.path.join(PLUGIN_ROOT, "skills", "code-review", "SKILL.md")
     assert os.path.exists(skill_path), "skills/code-review/SKILL.md must exist"
-    
+
     with open(skill_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Must replace git read-tree HEAD || true with conditional
-    assert "git read-tree HEAD || true" not in content, "Must not use || true"
-    assert "git rev-parse --verify HEAD" in content, "Must use conditional git rev-parse check"
+    # Single-agent zero-repo-pollution code-review contract (REQ-051..REQ-054)
+    assert "name: code-review" in content
+    assert "prepare_code_review.py" in content
+    assert "--staged" in content
+    assert "--base" in content
+    assert "--deep-lint" in content
+    assert "Empty Diff: true" in content
+    assert "Ground A" in content
+    assert "Ground B" in content
 
-    # Must preserve review.md on success and eliminate docs/tech_debt
-    assert "Delete `review.md`" not in content, "Must never delete review.md on success"
-    assert "review.md" in content
-    assert "docs/tech_debt" not in content, "Code review must not use docs/tech_debt"
-    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Code review must use systematic debugging"
-
-    # Must not use trailing extension in mktemp template on BSD/macOS
-    assert "review_XXXXXX.diff" not in content, "Must not use trailing .diff in mktemp placeholder"
-    assert '$(pwd)' not in content, "code-review skill must avoid $(pwd) command substitution"
-    assert 'REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")' in content, "code-review skill must use $PWD for absolute path"
-
-    # Two-stage delegation workflow to prevent Attention Guard deadlock
-    assert "--output-file review.json" in content, "Must document --output-file review.json"
-    assert "scripts/peer_review.py" in content, "Must invoke scripts/peer_review.py"
-    assert "Stage 1: Generate Diff" in content, "Must define Stage 1 diff generation"
-    assert "Stage 2: Adversarial Peer Review" in content, "Must define Stage 2 adversarial review"
-    assert "Model: flash" in content, "Stage 1 must use flash subagent"
-    assert "deepseek-v4.1-flash" in content, "Must document strict deepseek-v4.1-flash engine execution"
-    assert "$REVIEW_TARGET" in content, "Must reference $REVIEW_TARGET path"
-
-    # rtk git prefixing
-    assert "rtk git rev-parse --verify HEAD" in content, "Must prefix git with rtk"
-    assert "rtk git read-tree HEAD" in content, "Must prefix git with rtk"
-    assert "rtk git add <FILES>" in content, "Must prefix git with rtk"
-    assert "rtk git diff --cached" in content, "Must prefix git with rtk"
-
-    # schedule liveness tracking per AGENTS.md
-    assert "TimerCondition: any" in content, "Must use schedule with TimerCondition: any"
-    assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
-
-    # Stage structure and subagent lifecycle management
-    assert "Stage 3: Save Results" in content, "Must define Stage 3 Save Results"
-    assert "Stage 4: Evaluate Results" in content, "Must define Stage 4 Evaluate Results"
-    assert "manage_subagents" in content, "Must manage subagent lifecycle"
-
-    # R4 / ISSUE-R2-01: Signal trap for GIT_INDEX_FILE
-    assert "trap 'unset GIT_INDEX_FILE" in content, "Must protect GIT_INDEX_FILE cleanup with shell trap"
-
-    # R4 / ISSUE-R3-02: Attempt ceiling and ESCALATE transition
-    assert "attempt_counter >= 5" in content or "attempt_counter" in content
-    assert "ESCALATE" in content, "Must define ESCALATE transition for code review blockers"
-
-    # R4 / ISSUE-R3-03: Preservation of review.md even on empty diff
-    assert "review.md" in content
-    assert "No changes to review" in content
+    assert "invoke_subagent" not in content
+    assert "manage_subagents" not in content
+    assert "scripts/peer_review.py" not in content
+    assert "docs/tech_debt" not in content
+    for line in content.splitlines():
+        if "docs/adr/" in line:
+            assert "do not write" in line.lower(), f"Unexpected docs/adr/ directive: {line}"
 
 def test_readme_conformance():
     readme_path = os.path.join(PLUGIN_ROOT, "README.md")

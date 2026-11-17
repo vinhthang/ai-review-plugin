@@ -30,8 +30,8 @@ PLACEHOLDER_REQS = {"REQ-XXX", "REQ-xxx"}
 ADR_PATTERN = re.compile(r"\bADR-\d+\b")
 
 PLANNING_STATUSES = {"draft", "planning", "review"}
-EXECUTION_STATUSES = {"approved", "in-progress", "active"}
-VERIFIABLE_TERMINAL_STATUSES = {"completed", "implemented", "done"}
+EXECUTION_STATUSES = {"approved", "in-progress", "in-testing", "active"}
+VERIFIABLE_TERMINAL_STATUSES = {"completed", "implemented", "done", "verified"}
 TERMINAL_STATUSES = VERIFIABLE_TERMINAL_STATUSES | {"abandoned", "superseded"}
 ACTIVE_STATUSES = EXECUTION_STATUSES | PLANNING_STATUSES
 

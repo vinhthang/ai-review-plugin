@@ -1,126 +1,60 @@
 ---
 name: code-review
-description: An on-demand skill that performs a one-shot peer review on code changes and outputs findings to review.md.
+description: Perform a fast, single-agent peer review on code changes using local read-only linters, repository config auto-discovery, and distilled industry coding conventions without spawning external agents or polluting the repository.
 ---
+
 # Code Review
 
-This skill conducts an adversarial code review of code changes using the **Modular Review Architecture** (`docs/specs/2026-09-16-modular-review-flows/`) and explicit delegation to comply with Attention Guard rules. The Primary Agent delegates terminal execution to subagents according to the Model Selection Framework.
+Review uncommitted changes, staged diffs, or branch comparisons directly inside the current agent. Execute the entire review in-process—do not spawn subagents, timers, or external review engines, and do not write `review.md`, `review.json`, or `docs/adr/` files into the repository.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Audit
-    Audit --> Governance : 1. Clean
-    Audit --> Remediation : 2. Defects Found
+## 1. Collect Diff, Repo Conventions & Scoped Lints
 
-    Remediation --> Audit : 3. Re-Audit Loop
-    Remediation --> Governance : 4. Escalated
+Run the read-only collector from this skill's directory (`<skill-dir>/scripts/prepare_code_review.py`; prefix with `rtk` when `RULE[rtk.md]` is active):
 
-    Governance --> Done : 5. Approved ("Proceed")
-    Governance --> Audit : 6. Guided Retry
-    Governance --> [*] : 7. Rejected / Abort
-    Done --> [*]
+```bash
+python3 <skill-dir>/scripts/prepare_code_review.py --repo .
 ```
 
-## Review Execution Lifecycle
+Common flags:
+- `--staged` — review staged index changes only.
+- `--base <ref>` — review changes relative to `<ref>` (e.g., `--base main`, `--base HEAD~1`).
+- `--diff-file <path>` — review a pre-generated unified diff/patch file.
+- `--deep-lint` — opt in to heavier build-tool linters (`mvn`/`gradle` Checkstyle/SpotBugs, `cargo clippy`) when requested by the user.
+- `--no-lint` — skip local CLI linters when only diff + convention rules are needed.
+- `--dimension <all|inv|dom>` — focus on structural invariants (`inv`) or domain completeness (`dom`).
+- `[paths...]` — restrict review to specific files or directories.
 
-### Audit (Read-Only)
+If the output reports `Empty Diff: true` (no changes to review), state clearly in chat that no modifications were detected and stop.
 
-#### Stage 1: Generate Diff (Flash Subagent)
-- The Primary Agent MUST NOT execute terminal commands directly in Phase 1 per `attention-guard/rules/AGENTS.md`.
-- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md` before spawning the subagent.
-- Use `invoke_subagent` with `Model: flash` to spawn a diff generation subagent.
-- Provide the subagent with the explicit list of files modified or created for this task.
-- The `flash` subagent runs the diff script using `rtk git` command prefixing per `rules/rtk.md` and a temporary index to preserve the user's working state, with a POSIX signal trap to ensure `GIT_INDEX_FILE` environment variable cleanup (ISSUE-R2-01):
-  ```bash
-  mkdir -p .code-review
-  REVIEW_TARGET=$(mktemp "$PWD/.code-review/review_XXXXXX")
-  export GIT_INDEX_FILE=$(mktemp -u)
-  trap 'unset GIT_INDEX_FILE; rm -f "$GIT_INDEX_FILE"' EXIT
-  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git read-tree HEAD; fi
-  rtk git add <FILES>
-  if rtk git rev-parse --verify HEAD >/dev/null 2>&1; then rtk git diff --cached HEAD > "$REVIEW_TARGET"; else rtk git diff --cached 4b825dc642cb6eb9a060e54bf8d69288fbee4904 > "$REVIEW_TARGET"; fi
-  if ! test -s "$REVIEW_TARGET"; then
-    rm -f "$REVIEW_TARGET"
-    cat << 'EOF' > review.md
-  # Code Review: Clean
-  **Status**: Approved (No changes to review)
-  No modified files or differences detected against target.
-  EOF
-    echo "No changes to review."
-    exit 0
-  fi
-  rm -f "$GIT_INDEX_FILE"
-  unset GIT_INDEX_FILE
-  ```
-- The `flash` subagent returns the `$REVIEW_TARGET` path via `send_message` with a strict JSON payload:
-  ```json
-  {
-    "status": "completed",
-    "summary": "Diff generated successfully",
-    "review_target": "/absolute/path/to/.code-review/review_XXXXXX"
-  }
-  ```
-- **Empty Diff Handling (ISSUE-R3-03)**: If no changes were detected, the subagent writes `review.md` documenting clean verification evidence and returns `{"status": "completed", "summary": "No changes to review", "review_target": null}`. `review.md` is preserved in the project root as mandatory verification evidence, and review terminates early.
-- The Primary Agent uses `manage_subagents` to terminate the diff generation subagent.
+## 2. Apply Convention & Linter Precedence
 
-#### Stage 2: Adversarial Peer Review
-- Set a liveness timer via `schedule` with `TimerCondition: any` (e.g., `DurationSeconds=300`) per `attention-guard/rules/AGENTS.md`.
-- The Primary Agent autonomously selects the subagent model: defaulting to `flash` for standard, localized changes, or upgrading to `pro` for complex cross-file or high-risk architectural changes (with automatic graceful fallback to `flash` if quota limits are encountered).
-- Execute adversarial review via peer review CLI strictly utilizing the default `deepseek-v4.1-flash` engine:
-  `rtk python3 scripts/peer_review.py --mode code --repo . --output-file review.json [--prior-review <path>]`
-- Pass the diff content from `$REVIEW_TARGET` along with the `implementation_plan.md` (if it exists) for context.
-- Instruct the reviewer to output findings as a structured JSON payload:
-  ```json
-  {
-    "status": "completed",
-    "review_status": "approved|rejected",
-    "summary": "Executive summary of the code review",
-    "issues": [
-      {
-        "severity": "P0|P1|P2",
-        "description": "Clear explanation of the defect and location"
-      }
-    ]
-  }
-  ```
+Evaluate changes in strict priority order so outside conventions never fight a repository's own standards:
 
-#### Stage 3: Save Results
-- Write the reviewer's findings to `review.md` in the project root directory.
-- Format with sections: Executive Summary, P0 Issues (Critical), P1 Issues (Blocking), P2 Issues (Advisory).
-- Delete the temporary `$REVIEW_TARGET` diff file.
-- Use `manage_subagents` to kill the Peer Reviewer subagent.
-- **Evaluate Verdict**:
-  - `1. Clean` (No P0/P1 issues): Transition directly to **Governance**.
-  - `2. Defects Found` (P0 or P1 issues present): Transition to **Remediation**.
-  - **P2-Only Guard**: Advisory findings (P2) do NOT block progression to Governance.
+1. **Repository-Local Configuration (`repo_conventions`)**: Honor project configs discovered in the repo root first (`CONTRIBUTING.md`, `STYLEGUIDE.md`, `.editorconfig`, `checkstyle.xml`, `pmd.xml`, `.golangci.yml`, `go.mod` Go version, `pyproject.toml`, `tsconfig.json`, `biome.json`, `eslint` config).
+2. **Deterministic Scoped Lints (`linters`)**: Treat real errors reported by `git diff --check` and local CLI linters (`gofmt`, `go vet`, `golangci-lint`/`staticcheck`, `checkstyle`, `pmd`, `ruff`, `rustfmt`, `shellcheck`, `biome`/`eslint`, `actionlint`) on changed hunks (`in_diff_hunk=true`) as verified evidence; treat pre-existing warnings outside changed hunks as context only.
+3. **Bundled Industry Coding Conventions (`<language_review_rules>`)**: Apply the matched language checklists returned by the collector—including Google Java Style + *Effective Java* (3rd Ed.) + Spring Boot test-annotation/Testcontainer discipline (`java.md`), Google Go + Uber Go Style + `*_test.go` rules (`go.md`), PEP 8 + Google Python Style (`python.md`), Google TypeScript Style (`ts_js_tsx_jsx.md`), and Rust API Guidelines (`rust.md`).
+4. **On-Demand External Lookup (Fallback Only)**: Only search external docs or the web when `matched_rules` falls back to `default.md` or touches a specialized framework not covered by the bundled checklists.
 
-### Remediation
+## 3. Verify Context Before Flagging (`Ground A` & `Ground B`)
 
-When P0/P1 defects are found, avoid uncoordinated speculation. Execute structured 3-way triage:
+Favor precision over recall—a false alarm erodes trust faster than silence on minor style preferences:
 
-1. **Structured 3-Way Triage**:
-   - **1) Legitimate Code Defect**: Resolve the issue in source code, verify with test execution, and re-audit.
-   - **2) Misplaced Documentation Demand (Docs vs Code Leaky Abstraction)**: When reviewer demands operational logic, complex multi-platform shell scripts, or sanitizers inside Markdown docs/skills, do NOT inline scripts into Markdown. Instead, encapsulate the logic in a CLI tool or script (in `tools/` or `scripts/`), reference the tool in docs, and refute the inline demand using the Stateless Rebuttal Protocol in `--prior-review`.
-   - **3) False Positive / Speculative Nitpick**: Supply an evidence-backed justification (architectural separation of concerns, tool delegation, or falsifiable unit test proof) in `--prior-review`.
+- **Ground A (Diff Scope Invariant)**: Only report defects introduced, modified, or broken by the changed hunks. Never nitpick untouched legacy lines outside the diff.
+- **Ground B (Caller & Diff Verification)**: Before emitting any finding:
+  1. Re-check the diff hunks to confirm no line already handles the case (imports, guards, cleanup, tests).
+  2. Inspect surrounding callers, callees, upstream type/null contracts, and enclosing locks or `with`/`try-with-resources` blocks (using CodeGraph tools if `.codegraph/` is active, otherwise file-reading / AST tools). Never infer concurrency, attacker control, or nullability from a function name alone.
+- **Docs vs. Code Guardrail**: When reviewing Markdown or skill files (`*.md`), evaluate contract clarity, link/CLI accuracy, and consistency—never demand that shell scripts or sanitizers be inlined into prose documentation.
 
-2. **Root Cause Diagnosis (Dalio Step 3)**:
-   - Dispatch Tier 1 Read-Only Pro Diagnostician or fast Flash Diagnostician per `attention-guard/rules/AGENTS.md (Diagnostician)` to isolate root causes prior to making code corrections.
+## 4. Severity Rubric & Direct Report
 
-3. **Stateless Rebuttal Protocol**:
-   - For disputed findings or misplaced documentation demands, pass the previous review JSON and developer rebuttal context using `--prior-review <path>`.
-   - The reviewer prompt evaluates developer rebuttals against evidence and clears substantiated blockers without multi-turn debate loops.
+Classify every verified finding strictly:
+- **P0 (Critical — Blocking)**: Exploitable security flaws, data loss/corruption, crashes/panics on reachable inputs, auth/permission bypasses, deadlocks.
+- **P1 (Defect — Blocking)**: Incorrect business/boundary logic, dropped errors, race conditions, resource leaks, broken caller contracts, vacuous/self-mocked tests, or blocking framework test-hygiene violations (such as combining `@UnitTest` + `@IntegrationTest`, mocking `*Repository` inside `@IntegrationTest`, or calling `t.Fatal`/`require.*` inside a Go child goroutine).
+- **P2 (Advisory — Non-Blocking)**: Idiomatic convention improvements, naming clarity, minor maintainability or style suggestions.
 
-4. **Escalation Ceiling**:
-   - Maintain an attempt/escalation counter (`escalation_counter` / `attempt_counter`).
-   - If `escalation_counter < 3` (or `attempt_counter < 5`): Apply code/tool fixes or construct evidence rebuttal, then transition back to **Audit** (`3. Re-Audit Loop`) passing `--prior-review`.
-   - If `escalation_counter >= 3` or dispute remains unresolved after 3 attempts, halt autonomous loops and transition directly to **Governance** for human arbitration (`4. Escalated` / `ESCALATE`).
+Present the review **directly in chat** (use a Brain Artifact only when an extensive multi-module report is requested—never write files into the repository):
 
-### Governance
-
-#### Stage 4: Evaluate Results & Final Sign-Off
-- **Preserve Verification Evidence (ISSUE-R3-03)**: Never delete `review.md`. It serves as the authoritative verification artifact proving the code was scrutinized. Even on clean diffs or zero-defect passes, `review.md` must be retained in the project root.
-- **Human Gate Presentation**: Present the review verdict, findings dashboard, or escalated dispute to the user per `rules/explicit-approval.md`.
-- **User Authorization Gate**:
-  - `5. Approved` ("Proceed"): Authorize proceeding to commit / milestone completion. The Primary Agent compiles the final Architecture Decision Record to `docs/adr/YYYYMMDD_HHMM_<description>.md` referencing `implementation_plan.md`, `review.md`, and the verified code changes.
-  - `6. Guided Retry`: User provides direction; reset `escalation_counter = 0` and retry Audit.
-  - `7. Rejected / Abort`: User rejects changes; halt execution.
+1. **Verdict**: `Approved` (`0` P0/P1 issues) or `Changes Requested` (`N` blocking P0/P1 issues).
+2. **Blocking Issues (`P0` / `P1`)**: File link with exact line range, severity, concrete failure scenario, and minimal fix.
+3. **Advisory Notes (`P2`)**: Concise non-blocking suggestions (omit section if none).
+4. **Checked Scope**: Changed file count, matched convention packs, and executed/skipped local linters.
