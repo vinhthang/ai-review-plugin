@@ -19,7 +19,7 @@ Common flags:
 - `--staged` — review staged index changes only.
 - `--base <ref>` — review changes relative to `<ref>` (e.g., `--base main`, `--base HEAD~1`).
 - `--diff-file <path>` — review a pre-generated unified diff/patch file.
-- `--deep-lint` — opt in to heavier build-tool linters (`mvn`/`gradle` Checkstyle/SpotBugs, `cargo clippy`) when requested by the user.
+- `--deep-lint` — opt in to heavier build-tool linters (`mvn`/`gradle` Checkstyle/SpotBugs/Detekt/Android Lint, `cargo clippy`, `swift build --build-tests`) when requested by the user.
 - `--no-lint` — skip local CLI linters when only diff + convention rules are needed.
 - `--dimension <all|inv|dom>` — focus on structural invariants (`inv`) or domain completeness (`dom`).
 - `[paths...]` — restrict review to specific files or directories.
@@ -30,9 +30,9 @@ If the output reports `Empty Diff: true` (no changes to review), state clearly i
 
 Evaluate changes in strict priority order so outside conventions never fight a repository's own standards:
 
-1. **Repository-Local Configuration (`repo_conventions`)**: Honor project configs discovered in the repo root first (`CONTRIBUTING.md`, `STYLEGUIDE.md`, `.editorconfig`, `checkstyle.xml`, `pmd.xml`, `.golangci.yml`, `go.mod` Go version, `pyproject.toml`, `tsconfig.json`, `biome.json`, `eslint` config).
-2. **Deterministic Scoped Lints (`linters`)**: Treat real errors reported by `git diff --check` and local CLI linters (`gofmt`, `go vet`, `golangci-lint`/`staticcheck`, `checkstyle`, `pmd`, `ruff`, `rustfmt`, `shellcheck`, `biome`/`eslint`, `actionlint`) on changed hunks (`in_diff_hunk=true`) as verified evidence; treat pre-existing warnings outside changed hunks as context only.
-3. **Bundled Industry Coding Conventions (`<language_review_rules>`)**: Apply the matched language checklists returned by the collector—including Google Java Style + *Effective Java* (3rd Ed.) + Spring Boot test-annotation/Testcontainer discipline (`java.md`), Google Go + Uber Go Style + `*_test.go` rules (`go.md`), PEP 8 + Google Python Style (`python.md`), Google TypeScript Style (`ts_js_tsx_jsx.md`), and Rust API Guidelines (`rust.md`).
+1. **Repository-Local Configuration (`repo_conventions`)**: Honor project configs discovered in the repo root first (`CONTRIBUTING.md`, `STYLEGUIDE.md`, `.editorconfig`, `checkstyle.xml`, `pmd.xml`, `detekt.yml`, `lint.xml`, `.swiftlint.yml`, `.swift-format`, `Package.swift`, `.golangci.yml`, `go.mod` Go version, `pyproject.toml`, `tsconfig.json`, `biome.json`, `eslint` config).
+2. **Deterministic Scoped Lints (`linters`)**: Treat real errors reported by `git diff --check` and local CLI linters (`gofmt`, `go vet`, `golangci-lint`/`staticcheck`, `checkstyle`, `pmd`, `ktlint`, `detekt`, `swiftlint`, `swift-format`, `ruff`, `rustfmt`, `shellcheck`, `biome`/`eslint`, `actionlint`) on changed hunks (`in_diff_hunk=true`) as verified evidence; treat pre-existing warnings outside changed hunks as context only.
+3. **Bundled Industry Coding Conventions (`<language_review_rules>`)**: Apply the matched language checklists returned by the collector—including Google Java Style + *Effective Java* (3rd Ed.) + Spring Boot test-annotation/Testcontainer discipline (`java.md`), Official Kotlin + Android Kotlin Style + Coroutines/Jetpack Compose/Android lifecycle discipline (`kotlin.md`), Apple Swift API Design Guidelines + Google Swift Style + Swift 6 concurrency/ARC/SwiftUI/Swift Testing (`swift.md`), Google Go + Uber Go Style + `*_test.go` rules (`go.md`), PEP 8 + Google Python Style (`python.md`), Google TypeScript Style (`ts_js_tsx_jsx.md`), and Rust API Guidelines (`rust.md`).
 4. **On-Demand External Lookup (Fallback Only)**: Only search external docs or the web when `matched_rules` falls back to `default.md` or touches a specialized framework not covered by the bundled checklists.
 
 ## 3. Verify Context Before Flagging (`Ground A` & `Ground B`)

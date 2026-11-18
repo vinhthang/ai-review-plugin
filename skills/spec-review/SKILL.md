@@ -9,9 +9,9 @@ The `spec-review` skill conducts an adversarial architectural peer review of a d
 ## Antigravity & Dalio 5-Step Integration
 - **Step 1: Set Clear Goals:** Verify specification requirements against user intent established in `Antigravity Disambiguation (/grill-me)`.
 - **Step 2: Don't Tolerate Problems:** Rigorously identify structural flaws. Zero tolerance for deferred defect backlogs; resolve all issues directly.
-- **Step 3: Root Cause Diagnosis:** Isolate root causes using `attention-guard/rules/AGENTS.md (Diagnostician)`.
+- **Step 3: Root Cause Diagnosis:** Isolate root causes grounded in repository evidence per `attention-guard/rules/AGENTS.md`.
 - **Step 4: Deterministic Design:** Formalize verifiable specifications ready for planning in `Antigravity Planning Mode (implementation_plan.md)`.
-- **Step 5: Execution Accountability:** Human authorization gate governed by `rules/explicit-approval.md`.
+- **Step 5: Execution Accountability:** Human authorization gate governed by `attention-guard/rules/AGENTS.md`.
 
 ```mermaid
 stateDiagram-v2
@@ -35,21 +35,21 @@ stateDiagram-v2
    - Explicit argument: `$1` if provided.
    - Active package: `docs/specs/<feature-id>/spec.md`.
    - Fallback: Scan recursively across `docs/specs/**/spec.md` and `docs/specs/*.md` (excluding `INDEX.md`) sorted by `mtime` descending.
-2. **Execute Audit:** Launch an isolated review subagent via `peer_review.py`:
+2. **Execute Audit:** Run the isolated review engine via `<plugin-dir>/scripts/peer_review.py` (`~/.gemini/config/plugins/ai-review-plugin/scripts/peer_review.py`):
    ```bash
-   python3 scripts/peer_review.py --target <resolved_spec> --mode spec --repo <repo_root> --output-file review.json [--prior-review <path>]
+   rtk python3 <plugin-dir>/scripts/peer_review.py --target <resolved_spec> --mode spec --repo <repo_root> --output-file review.json [--prior-review <path>]
    ```
 3. **Evaluate Verdict:**
    - **`1. Clean`** (No P0/P1 issues): Transition directly to **Governance**.
    - **`2. Defects Found`** (P0 or P1 issues present): Transition to **Remediation**.
    - **P2-Only Guard:** Advisory findings (P2/P3) do NOT block progression to Governance.
-   - **System Error:** Escalate failure immediately. Subagents report structured JSON with `review_status` ("approved" or "rejected").
+   - **System Error:** Escalate failure immediately (`review_status`: `"approved"` or `"rejected"`).
 
 ### Remediation
 1. **Issue Triage:** Review each P0/P1 issue. Distinguish accepted defects (`1a`) from disputed feedback (`1b`).
 2. **Root Cause Diagnosis (Dalio Step 3):**
-   - Dispatch Tier 1 Read-Only Pro Diagnostician (`attention-guard/rules/AGENTS.md`) to isolate root causes with `attention-guard/rules/AGENTS.md (Diagnostician)`.
-   - If second failure or ambiguous, dispatch Tier 2 External Second-Opinion (WorkBuddy or Codex).
+   - Isolate root causes against live code and specification invariants per `attention-guard/rules/AGENTS.md`.
+   - If second failure or ambiguous, dispatch an external second-opinion engine (WorkBuddy or Codex).
 3. **Stateless Rebuttal Protocol:**
    - For disputed findings, append evidence-backed technical rationale to the prior review context.
    - Do NOT run multi-turn debate loops; inject rebuttal directly into `--prior-review`.
@@ -59,7 +59,7 @@ stateDiagram-v2
 
 ### Governance
 1. **Human Gate Presentation:** Present the review verdict and findings dashboard to the user.
-2. **User Authorization Gate (`rules/explicit-approval.md`):** Await explicit user action:
+2. **User Authorization Gate (`attention-guard/rules/AGENTS.md`):** Await explicit user action:
    - **`5. Approved` ("Proceed"):** Authorize proceeding to planning (`Antigravity Planning Mode (implementation_plan.md)`).
    - **`6. Guided Retry`:** User provides direction; reset `escalation_counter = 0`.
    - **`7. Rejected`:** User rejects specification.

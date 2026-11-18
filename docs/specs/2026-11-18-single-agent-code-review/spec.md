@@ -34,6 +34,7 @@ Grounding against `skills/code-review/SKILL.md`, `scripts/review/{audit,prompts,
 
 ### REQ-051: Read-only diff and language-rule collector (`prepare_code_review.py`)
 
+- Current contract: Changed by [2026-11-18-mobile-kotlin-swift-code-review/REQ-055](../2026-11-18-mobile-kotlin-swift-code-review/spec.md#req-055-mobile-lockfile-filtering-for-swift-and-kotlingradle-prepare_code_reviewpy)
 - Source intent: User request ("I want to use code-review, but no need to call other agent") and selected pure single-agent collector option.
 - Statement: WHEN `prepare_code_review.py` is invoked against a git repository (default uncommitted + untracked, `--staged`, `--base <ref>`, or `--diff-file <path>`), THE script SHALL capture the unified diff using an isolated temporary `GIT_INDEX_FILE`, skip lockfile bodies while recording skipped lockfiles, resolve deduplicated `<language_review_rules>` via `scripts/review/rule_matcher.py` (including when invoked via symlink at `~/.codex/skills/code-review`), and leave `.git/index` and the working tree byte-identical.
 - AC-051-1 — Success: Running `prepare_code_review.py` on a repo with staged, unstaged, and untracked `.py`/`.java`/`.go` changes outputs `empty_diff: false`, changed paths, matched `python.md`/`java.md`/`go.md` checklists, and unified diff text while keeping `.git/index` SHA-256 and `git status --porcelain` unchanged (including from a symlinked skill path and on unborn `HEAD` repos).
@@ -41,6 +42,7 @@ Grounding against `skills/code-review/SKILL.md`, `scripts/review/{audit,prompts,
 
 ### REQ-052: Repo convention auto-discovery and fast read-only scoped linters (`lint_runner.py`)
 
+- Current contract: Changed by [2026-11-18-mobile-kotlin-swift-code-review/REQ-056](../2026-11-18-mobile-kotlin-swift-code-review/spec.md#req-056-swift-and-kotlinandroid-convention-discovery-and-read-only-scoped-linters-lint_runnerpy--skillmd)
 - Source intent: User request ("find that coding convention and use it, and thing like java lint, same for review golang") and selected fast read-only CLI linter + repo-config discovery option.
 - Statement: WHEN `prepare_code_review.py` runs without `--no-lint`, THE `lint_runner.py` module SHALL discover repository-level style/linter configs (including `go.mod` Go version, `.golangci.yml`, `checkstyle.xml`, `pmd.xml`, `pyproject.toml`, `.editorconfig`, `CONTRIBUTING.md`), execute `git diff --check` and installed fast read-only CLI linters (`gofmt -l`, `go vet`, `golangci-lint`/`staticcheck`, `checkstyle`, `pmd`, `ruff`, `rustfmt --check`, `shellcheck`, `biome`/`eslint`, `actionlint`) scoped to changed files/packages, tag findings inside changed hunks (`in_diff_hunk`), skip missing binaries without error, and gate slow build-tool linters (`mvn`/`gradle`, `cargo clippy`) behind `--deep-lint`.
 - AC-052-1 — Success: `discover_repo_conventions()` identifies repo config files and `go.mod` `go 1.XX` version, and `run_scoped_linters()` captures diagnostics from `git diff --check` and available/stubbed CLI linters on `PATH` with accurate `in_diff_hunk` tagging while gating build-tool linters behind `--deep-lint`.
@@ -48,6 +50,7 @@ Grounding against `skills/code-review/SKILL.md`, `scripts/review/{audit,prompts,
 
 ### REQ-053: Distilled industry coding conventions across core `rule_docs/*.md`
 
+- Current contract: Changed by [2026-11-18-mobile-kotlin-swift-code-review/REQ-057](../2026-11-18-mobile-kotlin-swift-code-review/spec.md#req-057-distilled-kotlin-android--coroutines--compose-and-swift-api-design--swift-testing-convention-packs)
 - Source intent: User request for well-known outside coding conventions (Java, Go, etc.) and selected offline distilled standards option.
 - Statement: WHEN `rule_matcher.py` resolves checklists from `scripts/review/rules/rule_docs/`, THE corpus SHALL maintain all 57 `rule_docs/*.md` files while enriching `java.md` (Google Java Style + Effective Java 3e + Java 17/21 idioms alongside Axon's 5 Spring Boot test-hygiene rules), `go.md` (Google Go + Uber Go Style + Effective Go and active `*_test.go` test review), `python.md` (PEP 8 + Google Python Style), `ts_js_tsx_jsx.md` (Google TypeScript Style), and `rust.md` (Rust API Guidelines).
 - AC-053-1 — Success: `java.md`, `go.md`, `python.md`, `ts_js_tsx_jsx.md`, and `rust.md` contain their distilled convention sections; `go.md` reviews `*_test.go` table tests/`t.Helper()`/goroutine `t.Fatal` misuse instead of claiming `*_test.go` is excluded; and all `tests/test_ocr_language_rules.py` checks (`57` rule docs, `58` globs, heading markers) pass.
@@ -55,6 +58,7 @@ Grounding against `skills/code-review/SKILL.md`, `scripts/review/{audit,prompts,
 
 ### REQ-054: Single-agent `SKILL.md`, zero-repo-pollution reporting, and companion rule alignment
 
+- Current contract: Changed by [2026-11-18-mobile-kotlin-swift-code-review/REQ-056](../2026-11-18-mobile-kotlin-swift-code-review/spec.md#req-056-swift-and-kotlinandroid-convention-discovery-and-read-only-scoped-linters-lint_runnerpy--skillmd)
 - Source intent: User selections to execute `code-review` with zero subagents/external calls, report in chat with zero repo files, and align `ai-review-plugin/rules/AGENTS.md` + `~/.gemini/config/rules/tdd.md` + Codex symlink.
 - Statement: WHEN an agent invokes `code-review`, THE `skills/code-review/SKILL.md` instructions SHALL run `prepare_code_review.py` directly, apply convention precedence (`repo_conventions` -> `linter_findings` -> `<language_review_rules>` -> on-demand lookup), verify surrounding context (`Ground A`/`Ground B`), and report `P0`/`P1`/`P2` findings in chat without spawning subagents/external engines or writing files into the repository; and `ai-review-plugin/rules/AGENTS.md`, `README.md`, `~/.gemini/config/rules/tdd.md`, and `~/.codex/skills/code-review` SHALL align with this contract.
 - AC-054-1 — Success: `skills/code-review/SKILL.md` contains zero `invoke_subagent`, `schedule`, `peer_review.py`, `review.md` write, or `docs/adr/` creation directives; `~/.codex/skills/code-review` resolves to `skills/code-review`; `ai-review-plugin/rules/AGENTS.md` and `~/.gemini/config/rules/tdd.md` permit direct single-agent `code-review`; and `surface_validator.py`, `agy plugin validate`, and `quick_validate.py` exit `0`.

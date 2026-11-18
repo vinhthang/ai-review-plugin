@@ -456,3 +456,212 @@ def test_ac_053_and_ac_054_skill_and_rule_contracts() -> None:
                     assert not isinstance(stmt, ast.Pass), (
                         f"Forbidden ast.Pass in ExceptHandler of {script_path.name}:{stmt.lineno}"
                     )
+
+
+def test_ac_055_mobile_lockfile_filtering_and_lockfile_only_boundary(tmp_path: Path) -> None:
+    repo = tmp_path / "mobile_repo"
+    repo.mkdir()
+    _init_git_repo(repo)
+
+    (repo / "App.swift").write_text("struct App {}\n", encoding="utf-8")
+    (repo / "MainViewModel.kt").write_text("class MainViewModel\n", encoding="utf-8")
+    (repo / "Package.resolved").write_text('{"version": 1}\n', encoding="utf-8")
+    (repo / "Podfile.lock").write_text("PODS:\n  - Alamofire (5.0)\n", encoding="utf-8")
+    (repo / "gradle.lockfile").write_text("empty=\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "baseline")
+
+    # Modify only mobile lockfiles first (AC-055-2)
+    (repo / "Package.resolved").write_text('{"version": 2, "secret_marker": "LOCK_SWIFT"}\n', encoding="utf-8")
+    (repo / "Podfile.lock").write_text("PODS:\n  - Alamofire (5.9) # LOCK_POD\n", encoding="utf-8")
+    (repo / "gradle.lockfile").write_text("androidx.core:core-ktx=1.13.0 # LOCK_GRADLE\n", encoding="utf-8")
+
+    index_before = _sha256_bytes(repo / ".git" / "index")
+    lock_only_proc = subprocess.run(
+        [sys.executable, str(PREPARE_SCRIPT), "--repo", str(repo), "--no-lint", "--json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    lock_only = json.loads(lock_only_proc.stdout)
+    assert _sha256_bytes(repo / ".git" / "index") == index_before
+    assert lock_only["diff"] == ""
+    assert set(lock_only["skipped_lockfiles"]) == {"Package.resolved", "Podfile.lock", "gradle.lockfile"}
+
+    # Now modify Swift + Kotlin alongside mobile lockfiles (AC-055-1)
+    (repo / "App.swift").write_text("struct App { let x = 1 }\n", encoding="utf-8")
+    (repo / "MainViewModel.kt").write_text("class MainViewModel { val x = 1 }\n", encoding="utf-8")
+
+    mixed_proc = subprocess.run(
+        [sys.executable, str(PREPARE_SCRIPT), "--repo", str(repo), "--no-lint", "--json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    mixed = json.loads(mixed_proc.stdout)
+    assert mixed["empty_diff"] is False
+    assert set(mixed["skipped_lockfiles"]) == {"Package.resolved", "Podfile.lock", "gradle.lockfile"}
+    assert set(mixed["matched_rules"]) == {"swift.md", "kotlin.md"}
+    assert "App.swift" in mixed["diff"]
+    assert "MainViewModel.kt" in mixed["diff"]
+    for lock_marker in ("LOCK_SWIFT", "LOCK_POD", "LOCK_GRADLE"):
+        assert lock_marker not in mixed["diff"]
+
+
+def test_ac_056_swift_and_kotlin_conventions_and_scoped_linters(tmp_path: Path) -> None:
+    if str(LINT_RUNNER_DIR) not in sys.path:
+        sys.path.insert(0, str(LINT_RUNNER_DIR))
+    from lint_runner import discover_repo_conventions, parse_changed_lines, run_scoped_linters
+
+    repo = tmp_path / "mobile_lint_repo"
+    repo.mkdir()
+    _init_git_repo(repo)
+
+    swift_lines = [f"let v{i} = {i}" for i in range(1, 25)]
+    kt_lines = [f"val k{i} = {i}" for i in range(1, 25)]
+    (repo / "App.swift").write_text("\n".join(swift_lines) + "\n", encoding="utf-8")
+    (repo / "MainViewModel.kt").write_text("\n".join(kt_lines) + "\n", encoding="utf-8")
+    (repo / ".swiftlint.yml").write_text("disabled_rules:\n  - trailing_whitespace\n", encoding="utf-8")
+    (repo / ".swift-format").write_text('{"version": 1}\n', encoding="utf-8")
+    (repo / "Package.swift").write_text("// swift-tools-version: 6.0\n", encoding="utf-8")
+    (repo / "config" / "detekt").mkdir(parents=True)
+    (repo / "config" / "detekt" / "detekt.yml").write_text("complexity:\n  active: true\n", encoding="utf-8")
+    (repo / "lint.xml").write_text("<lint/>\n", encoding="utf-8")
+    (repo / "build.gradle.kts").write_text("plugins { kotlin(\"android\") }\n", encoding="utf-8")
+    (repo / "gradle").mkdir()
+    (repo / "gradle" / "libs.versions.toml").write_text("[versions]\nkotlin = \"2.0.0\"\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "baseline")
+
+    # Modify line 2 in both App.swift and MainViewModel.kt
+    swift_lines[1] = "let v2 = 999"
+    kt_lines[1] = "val k2 = 999"
+    (repo / "App.swift").write_text("\n".join(swift_lines) + "\n", encoding="utf-8")
+    (repo / "MainViewModel.kt").write_text("\n".join(kt_lines) + "\n", encoding="utf-8")
+
+    # 1. Convention discovery checks (with and without Swift/Kotlin files in changed_files)
+    conv_active = discover_repo_conventions(repo, ["App.swift", "MainViewModel.kt"])
+    assert conv_active["swift_configs"] == {
+        "swiftlint": ".swiftlint.yml",
+        "swift_format": ".swift-format",
+    }
+    assert conv_active["kotlin_configs"] == {
+        "detekt": "config/detekt/detekt.yml",
+        "android_lint": "lint.xml",
+    }
+    assert "gradle/libs.versions.toml" in conv_active["config_files"]
+    assert any("Package.swift" in h for h in conv_active["deep_lint_hints"])
+    assert any("Gradle" in h for h in conv_active["deep_lint_hints"])
+
+    conv_unrelated = discover_repo_conventions(repo, ["README.md"])
+    assert conv_unrelated["deep_lint_hints"] == []
+
+    # Verify root detekt.yml and .swiftformat fallback precedence
+    (repo / "detekt.yml").write_text("style:\n  active: true\n", encoding="utf-8")
+    (repo / ".swift-format").unlink()
+    (repo / ".swiftformat").write_text("--indent 4\n", encoding="utf-8")
+    conv_root = discover_repo_conventions(repo, ["App.swift", "MainViewModel.kt"])
+    assert conv_root["kotlin_configs"]["detekt"] == "detekt.yml"
+    assert conv_root["swift_configs"]["swift_format"] == ".swiftformat"
+
+    diff_out = _git(repo, "diff", "HEAD", "--unified=3").stdout
+    changed_lines = parse_changed_lines(diff_out)
+
+    # 2. Fast read-only scoped CLI linters + in_diff_hunk tagging + zero mutating flags
+    bin_dir = tmp_path / "mobile_bin"
+    args_log = tmp_path / "linter_args.log"
+    _make_stub(
+        bin_dir,
+        "swiftlint",
+        f'echo "swiftlint:$*" >> "{args_log}"\n'
+        'echo "App.swift:2:5: warning: Force Unwrapping Violation (force_unwrapping)"\n'
+        'echo "App.swift:20:1: warning: Line Length Violation (line_length)"\nexit 1',
+    )
+    _make_stub(
+        bin_dir,
+        "swift-format",
+        f'echo "swift-format:$*" >> "{args_log}"\n'
+        'echo "App.swift:2:1: warning: [Indentation] indent by 2 spaces"\nexit 1',
+    )
+    _make_stub(
+        bin_dir,
+        "ktlint",
+        f'echo "ktlint:$*" >> "{args_log}"\n'
+        'echo "MainViewModel.kt:2:1: Needless blank line (standard:no-consecutive-blank-lines)"\nexit 1',
+    )
+    _make_stub(
+        bin_dir,
+        "detekt",
+        f'echo "detekt:$*" >> "{args_log}"\n'
+        'echo "MainViewModel.kt:2:9: Caught exception is too generic [TooGenericExceptionCaught]"\n'
+        'echo "MainViewModel.kt:22:1: MagicNumber"\nexit 1',
+    )
+    gradle_marker = tmp_path / "gradle_deep.txt"
+    swift_build_marker = tmp_path / "swift_deep.txt"
+    _make_stub(bin_dir, "gradle", f'echo "gradle:$*" >> "{gradle_marker}"\nexit 0')
+    _make_stub(bin_dir, "swift", f'echo "swift:$*" >> "{swift_build_marker}"\nexit 0')
+
+    isolated_env = {"PATH": f"{bin_dir}:/usr/bin:/bin"}
+    res_fast = run_scoped_linters(
+        repo,
+        ["App.swift", "MainViewModel.kt"],
+        changed_lines,
+        deep_lint=False,
+        timeout_sec=2,
+        env=isolated_env,
+    )
+
+    findings = res_fast["findings"]
+    assert any(f["tool"] == "swiftlint" and f["line"] == 2 and f["in_diff_hunk"] is True for f in findings)
+    assert any(f["tool"] == "swiftlint" and f["line"] == 20 and f["in_diff_hunk"] is False for f in findings)
+    assert any(f["tool"] == "swift-format" and f["line"] == 2 and f["in_diff_hunk"] is True for f in findings)
+    assert any(f["tool"] == "ktlint" and f["line"] == 2 and f["in_diff_hunk"] is True for f in findings)
+    assert any(f["tool"] == "detekt" and f["line"] == 2 and f["in_diff_hunk"] is True for f in findings)
+    assert any(f["tool"] == "detekt" and f["line"] == 22 and f["in_diff_hunk"] is False for f in findings)
+
+    logged_invocations = args_log.read_text(encoding="utf-8")
+    assert "-c detekt.yml" in logged_invocations
+    for forbidden_flag in ("--fix", " -F", " -i", "--in-place"):
+        assert forbidden_flag not in logged_invocations
+    assert not gradle_marker.exists()
+    assert not swift_build_marker.exists()
+
+    # 3. --deep-lint executes gradle check (once even if both .java and .kt present) and swift build --build-tests
+    (repo / "Helper.java").write_text("class Helper {}\n", encoding="utf-8")
+    res_deep = run_scoped_linters(
+        repo,
+        ["App.swift", "MainViewModel.kt", "Helper.java"],
+        changed_lines,
+        deep_lint=True,
+        timeout_sec=2,
+        env=isolated_env,
+    )
+    assert gradle_marker.exists()
+    assert swift_build_marker.exists()
+    gradle_lines = gradle_marker.read_text(encoding="utf-8").strip().splitlines()
+    assert len(gradle_lines) == 1
+    assert "check -x test --no-daemon" in gradle_lines[0]
+    assert "build --build-tests" in swift_build_marker.read_text(encoding="utf-8")
+    assert any("swift build --build-tests" in e for e in res_deep["executed"])
+
+    # 4. AC-056-2 boundary: missing binaries and timeout recorded in skipped without raising
+    timeout_bin = tmp_path / "timeout_bin"
+    _make_stub(timeout_bin, "swiftlint", "/bin/sleep 3\nexit 0")
+    res_boundary = run_scoped_linters(
+        repo,
+        ["App.swift", "MainViewModel.kt"],
+        changed_lines,
+        deep_lint=False,
+        timeout_sec=1,
+        env={"PATH": str(timeout_bin)},
+    )
+    skipped_str = "\n".join(res_boundary["skipped"])
+    assert "swiftlint (timed out after 1s)" in skipped_str
+    assert "swift-format (not installed)" in skipped_str
+    assert "ktlint (not installed)" in skipped_str
+    assert "detekt (not installed)" in skipped_str
+
+    # 5. SKILL.md documents Swift and Kotlin/Android linters & conventions
+    skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+    for doc_token in ("swiftlint", "swift-format", "ktlint", "detekt", "kotlin.md", "swift.md"):
+        assert doc_token in skill_text, f"Missing '{doc_token}' in SKILL.md"

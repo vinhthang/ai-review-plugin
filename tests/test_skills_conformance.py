@@ -20,10 +20,10 @@ def test_spec_review_skill_conformance():
     # Ray Dalio 5-Step mappings & Antigravity connections
     assert "Antigravity Disambiguation (/grill-me)" in content, "Must connect with Antigravity Disambiguation (/grill-me)"
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Must connect with attention-guard/rules/AGENTS.md (Diagnostician)"
-    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must connect with Antigravity Planning Mode (implementation_plan.md)"
-    assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
+    assert "(Diagnostician)" not in content, "Must not cite removed (Diagnostician) role"
+    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must connect with Antigravity Planning Mode (implementation_plan.md)"
+    assert "rules/explicit-approval.md" not in content, "Must not reference deleted rules/explicit-approval.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
     # Numbered Mermaid diagram transitions
@@ -60,12 +60,11 @@ def test_design_review_skill_conformance():
     # Ray Dalio 5-Step mappings & Antigravity connections
     assert "Antigravity Disambiguation (/grill-me)" in content, "Must connect with Antigravity Disambiguation (/grill-me)"
     assert "docs/tech_debt" not in content, "Must not relegate issues to docs/tech_debt"
-    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content, "Must connect with attention-guard/rules/AGENTS.md (Diagnostician)"
-    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must standardize on Antigravity Planning Mode (implementation_plan.md)"
-    assert "rules/explicit-approval.md" in content, "Must reference rules/explicit-approval.md"
-    assert "rules/reasoning-quality.md" in content, "Must reference rules/reasoning-quality.md"
-    assert "Antigravity /boost and invoke_subagent" in content, "Must delegate execution to Antigravity /boost and invoke_subagent"
     assert "attention-guard/rules/AGENTS.md" in content, "Must cite attention-guard/rules/AGENTS.md"
+    assert "(Diagnostician)" not in content, "Must not cite removed (Diagnostician) role"
+    assert "Antigravity Planning Mode (implementation_plan.md)" in content, "Must standardize on Antigravity Planning Mode (implementation_plan.md)"
+    assert "rules/explicit-approval.md" not in content, "Must not reference deleted rules/explicit-approval.md"
+    assert "rules/reasoning-quality.md" not in content, "Must not reference deleted rules/reasoning-quality.md"
     assert "rules/agent-delegation.md" not in content, "Must not cite outdated rules/agent-delegation.md"
 
     # Numbered Mermaid diagram transitions
@@ -122,14 +121,14 @@ def test_readme_conformance():
     with open(readme_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Must not contain docs/tech_debt bypass
+    # Must not contain docs/tech_debt bypass or deleted rule references
     assert "docs/tech_debt" not in content, "README must not reference docs/tech_debt bypass"
     assert "Antigravity Disambiguation (/grill-me)" in content
-    assert "attention-guard/rules/AGENTS.md (Diagnostician)" in content
+    assert "attention-guard/rules/AGENTS.md" in content
+    assert "(Diagnostician)" not in content
     assert "Antigravity Planning Mode (implementation_plan.md)" in content
-    assert "Antigravity /boost and invoke_subagent" in content
-    assert "rules/explicit-approval.md" in content
-    assert "rules/reasoning-quality.md" in content
+    assert "rules/explicit-approval.md" not in content
+    assert "rules/reasoning-quality.md" not in content
 
 def test_structured_subagent_payload_schema():
     payload = {

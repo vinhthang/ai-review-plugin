@@ -40,22 +40,20 @@ In complex software projects, conflating architectural design with task implemen
 ## Skills
 
 ### 1. `spec-review`
-An on-demand skill that performs a rigorous architectural peer review on design specifications in `docs/specs/`.
-- **Discovery Hierarchy**: Explicit argument `$1` -> Git modified spec (`rtk git status --porcelain docs/specs/`) -> newest file in `docs/specs/` by `mtime`.
-- **Pre-flight Format Validation**: Validates title header, metadata (`Date`, `Status`, `Authors`), required sections (`Context & Motivation`, `Architecture & System Model`, `Component & Interface Contracts`, `Error Handling & Failure Modes`, `Verification & Testing`), absence of `- [ ]` checkboxes, and zero placeholders (`TODO`, `TBD`, `WIP`, ellipsis).
-- **Reviewer Invocation**: Dispatches `scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo .`.
+An on-demand skill that performs a rigorous architectural peer review on design specifications in `docs/specs/<feature-id>/spec.md`.
+- **Discovery Hierarchy**: Explicit argument `$1` -> active `docs/specs/<feature-id>/spec.md` -> recursive `docs/specs/**/spec.md` sorted by `mtime`.
+- **5-Document `spec-driven` Compatibility**: Pairs with `spec-driven`'s `validate_specs.py` linter (`INDEX.md`, `spec.md`, `decisions.md`, `design.md`, `tasks.md`, `verification.md`).
+- **Reviewer Invocation**: Dispatches `<plugin-dir>/scripts/peer_review.py --mode spec --target <SPEC_PATH> --repo .`.
 - **Ray Dalio's Don't Tolerate Problems**: P0 (critical architectural flaws) and P1 (functional omissions/unhandled failure modes) block execution. P2 issues are non-blocking advisory suggestions.
-- **Explicit Human Approval Gate**: Halts at `APPROVAL_GATE` per `rules/explicit-approval.md` before transitioning to implementation planning.
+- **Explicit Human Approval Gate**: Halts at Governance per `attention-guard/rules/AGENTS.md` before transitioning to implementation.
 
 ### 2. `design-review`
-An on-demand skill that validates implementation plans and enforces bidirectional alignment with specifications.
-- **`SPEC_GATE` Transition**:
-  - Reads plan header for `**Spec:** <path>`.
-  - Verifies the specification exists on disk.
-  - Rejects with diagnostic error if spec is missing or unlinked (unless explicit `--no-spec` override is passed for bounded fixes).
-- **Reviewer Invocation**: Dispatches `scripts/peer_review.py --mode design --target <plan_path> --repo . --spec <resolved_spec_path>` (or `--no-spec`).
-- **Escalation Ceiling**: Enforces `attempt_counter >= 5` or `debate_counter >= 3` escalation to the human user if P0/P1 issues remain unresolved.
-- **Explicit Human Approval Gate**: Halts at `APPROVAL_GATE` per `rules/explicit-approval.md` and `rules/reasoning-quality.md`. Once approved, delegates to `Antigravity /boost and invoke_subagent`.
+An on-demand skill that validates `design.md` / implementation plans and enforces bidirectional alignment with specifications.
+- **Spec Precondition**:
+  - Verifies the governing `spec.md` exists on disk (unless explicit `--no-spec` override is passed for standalone bounded fixes).
+- **Reviewer Invocation**: Dispatches `<plugin-dir>/scripts/peer_review.py --mode design --target <design_path> --repo . --spec <resolved_spec_path>` (or `--no-spec`).
+- **Escalation Ceiling**: Enforces `escalation_counter >= 3` escalation to the human user if P0/P1 issues remain unresolved.
+- **Explicit Human Approval Gate**: Halts at Governance per `attention-guard/rules/AGENTS.md` before executing code changes.
 
 ### 3. `code-review`
 Fast, single-agent peer review on uncommitted, staged, or branch code changes—portable across Antigravity and OpenAI Codex with zero subagent or external engine overhead:
@@ -129,9 +127,9 @@ Review flows embody Ray Dalio's 5-step process for achieving operational excelle
 
 1. **Set Clear Goals**: Explore user intent, uncover constraints, evaluate trade-offs, and clarify requirements before drafting any plan, seamlessly integrating with Antigravity Disambiguation (/grill-me).
 2. **Identify Problems (Don't Tolerate Problems)**: Surface constraints, breaking changes, and architectural risks early. Never sweep problems under the rug: P0/P1 blockers halt execution and require explicit human resolution.
-3. **Diagnose Root Causes**: When a peer review rejects a plan, diagnose the fundamental root cause using attention-guard/rules/AGENTS.md (Diagnostician) rather than applying superficial fixes.
-4. **Design Plans**: Formulate a comprehensive, actionable specification adhering to Antigravity Planning Mode (implementation_plan.md) (clearly bounded operational tasks, exact file paths, explicit interfaces, and concrete test commands).
-5. **Push to Results (Execution)**: Enforce an explicit human approval gate per rules/explicit-approval.md and rules/reasoning-quality.md. Once approved by the user, delegate execution to Antigravity /boost and invoke_subagent with continuous verification.
+3. **Diagnose Root Causes**: When a peer review flags blockers, isolate the fundamental root cause against live code and invariants per `attention-guard/rules/AGENTS.md` rather than applying superficial fixes.
+4. **Design Plans**: Formulate a concise, actionable blueprint adhering to `Antigravity Planning Mode (implementation_plan.md)` and `docs/specs/<feature-id>/`.
+5. **Push to Results (Execution)**: Enforce an explicit human approval gate (`"Proceed"`) per `attention-guard/rules/AGENTS.md`, executing 1–2 file tasks directly or fanning out disjoint slices via `invoke_subagent`, `run_workflow`, or `swarm`.
 
 ---
 

@@ -39,6 +39,9 @@ LOCKFILE_BASENAMES: frozenset[str] = frozenset(
         "go.sum",
         "composer.lock",
         "gemfile.lock",
+        "package.resolved",
+        "podfile.lock",
+        "gradle.lockfile",
     }
 )
 

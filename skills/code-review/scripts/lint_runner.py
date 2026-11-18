@@ -48,6 +48,14 @@ CONVENTION_FILES: tuple[str, ...] = (
     "rustfmt.toml",
     ".rustfmt.toml",
     "clippy.toml",
+    ".swiftlint.yml",
+    ".swift-format",
+    ".swiftformat",
+    "Package.swift",
+    "detekt.yml",
+    "config/detekt/detekt.yml",
+    "lint.xml",
+    "gradle/libs.versions.toml",
 )
 
 ESLINT_CONFIGS: tuple[str, ...] = (
@@ -102,11 +110,31 @@ def discover_repo_conventions(repo_root: Path, changed_files: list[str]) -> dict
     if (repo_root / "spotbugs-exclude.xml").is_file():
         java_configs["spotbugs"] = "spotbugs-exclude.xml"
 
+    kotlin_configs: dict[str, str] = {}
+    for detekt_candidate in ("detekt.yml", "config/detekt/detekt.yml"):
+        if (repo_root / detekt_candidate).is_file():
+            kotlin_configs["detekt"] = detekt_candidate
+            break
+    if (repo_root / "lint.xml").is_file():
+        kotlin_configs["android_lint"] = "lint.xml"
+
+    swift_configs: dict[str, str] = {}
+    if (repo_root / ".swiftlint.yml").is_file():
+        swift_configs["swiftlint"] = ".swiftlint.yml"
+    for sf_candidate in (".swift-format", ".swiftformat"):
+        if (repo_root / sf_candidate).is_file():
+            swift_configs["swift_format"] = sf_candidate
+            break
+
     deep_lint_hints: list[str] = []
     has_java = any(f.endswith(".java") for f in changed_files)
+    has_kotlin = any(f.endswith((".kt", ".kts")) for f in changed_files)
+    has_swift = any(f.endswith(".swift") for f in changed_files)
     has_rust = any(f.endswith(".rs") for f in changed_files)
-    if has_java and any((repo_root / p).is_file() for p in ("pom.xml", "build.gradle", "build.gradle.kts")):
-        deep_lint_hints.append("Java build config detected; pass --deep-lint to run Maven/Gradle checks")
+    if (has_java or has_kotlin) and any((repo_root / p).is_file() for p in ("pom.xml", "build.gradle", "build.gradle.kts")):
+        deep_lint_hints.append("JVM/Android build config detected; pass --deep-lint to run Maven/Gradle checks")
+    if has_swift and (repo_root / "Package.swift").is_file():
+        deep_lint_hints.append("Package.swift detected; pass --deep-lint to run swift build --build-tests")
     if has_rust and (repo_root / "Cargo.toml").is_file():
         deep_lint_hints.append("Cargo.toml detected; pass --deep-lint to run cargo clippy")
 
@@ -115,6 +143,8 @@ def discover_repo_conventions(repo_root: Path, changed_files: list[str]) -> dict
         "go_version": go_version,
         "python_tools": python_tools,
         "java_configs": java_configs,
+        "kotlin_configs": kotlin_configs,
+        "swift_configs": swift_configs,
         "deep_lint_hints": deep_lint_hints,
     }
 
@@ -309,6 +339,8 @@ def run_scoped_linters(
     py_files = [f for f in existing_files if f.endswith((".py", ".pyi"))]
     go_files = [f for f in existing_files if f.endswith(".go")]
     java_files = [f for f in existing_files if f.endswith(".java")]
+    kt_files = [f for f in existing_files if f.endswith((".kt", ".kts"))]
+    swift_files = [f for f in existing_files if f.endswith(".swift")]
     rs_files = [f for f in existing_files if f.endswith(".rs")]
     sh_files = [f for f in existing_files if f.endswith((".sh", ".bash"))]
     wf_files = [f for f in existing_files if f.startswith(".github/workflows/") and f.endswith((".yml", ".yaml"))]
@@ -351,6 +383,19 @@ def run_scoped_linters(
         tool_jobs.append(("checkstyle", ["checkstyle", "-c", cfg, *java_files], timeout_sec))
         tool_jobs.append(("pmd", ["pmd", "check", "-d", ",".join(java_files), "-R", "rulesets/java/quickstart.xml", "-f", "text"], timeout_sec))
 
+    if kt_files:
+        tool_jobs.append(("ktlint", ["ktlint", "--relative", *kt_files], timeout_sec))
+        detekt_cmd = ["detekt", "--input", ",".join(kt_files)]
+        for detekt_candidate in ("detekt.yml", "config/detekt/detekt.yml"):
+            if (repo_root / detekt_candidate).is_file():
+                detekt_cmd.extend(["-c", detekt_candidate])
+                break
+        tool_jobs.append(("detekt", detekt_cmd, timeout_sec))
+
+    if swift_files:
+        tool_jobs.append(("swiftlint", ["swiftlint", "lint", "--quiet", "--", *swift_files], timeout_sec))
+        tool_jobs.append(("swift-format", ["swift-format", "lint", *swift_files], timeout_sec))
+
     if rs_files:
         tool_jobs.append(("rustfmt", ["rustfmt", "--check", "--", *rs_files], timeout_sec))
     if sh_files:
@@ -368,8 +413,10 @@ def run_scoped_linters(
         deep_timeout = max(timeout_sec, 60)
         if java_files and (repo_root / "pom.xml").is_file():
             tool_jobs.append(("mvn", ["mvn", "-q", "checkstyle:check", "-DskipTests"], deep_timeout))
-        elif java_files and any((repo_root / g).is_file() for g in ("build.gradle", "build.gradle.kts")):
+        elif (java_files or kt_files) and any((repo_root / g).is_file() for g in ("build.gradle", "build.gradle.kts")):
             tool_jobs.append(("gradle", ["gradle", "check", "-x", "test", "--no-daemon"], deep_timeout))
+        if swift_files and (repo_root / "Package.swift").is_file():
+            tool_jobs.append(("swift", ["swift", "build", "--build-tests"], deep_timeout))
         if rs_files and (repo_root / "Cargo.toml").is_file():
             tool_jobs.append(("cargo", ["cargo", "clippy", "--no-deps", "--message-format", "short"], deep_timeout))
 

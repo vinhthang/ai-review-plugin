@@ -103,3 +103,15 @@ Before reporting non-local behavior, use `file_read` and `code_search` to verify
 - Async tests leaving tasks running after completion.
 - Assertions that cannot fail for the regression they intend to detect.
 - Tests depending on uncontrolled environment state (network, time, locale, global persistence) where isolation is required.
+
+#### Apple Swift API Design Guidelines & Google Swift Style
+Respect repository-local `.swiftlint.yml`, `.swift-format`, and `.swiftformat` configurations first when present; otherwise apply **Apple Swift API Design Guidelines** and **Google Swift Style Guide** conventions (treat contract/semantic defects as P1 blocking and naming/idiom improvements as P2 advisory):
+- **Clarity at the Point of Use**: Name methods and properties according to their side effects—mutating operations use imperative verb phrases (`sort()`, `append(_:)`), while non-mutating counterparts use noun phrases or `-ed`/`-ing` forms (`sorted()`, `appending(_:)`); omit needless type repetition in argument labels (`remove(at: index)` instead of `removeElementAtIndex(index)`).
+- **Value Semantics vs. Reference Semantics**: Default to `struct` and `enum` for value carriers, models, and state snapshots; use `final class` (or `actor`) when identity, reference sharing, or Objective-C interoperability is intentional—avoid accidental shared mutable `class` state inside value-typed wrappers without copy-on-write invariants.
+- **`guard` Early Exits & Access Control**: Prefer `guard let` / `guard ... else { return }` to keep the happy path unindented instead of deep optional pyramids; restrict implementation details with `private` / `fileprivate` and mark non-subclassed classes `final` to clarify inheritance contracts and enable static dispatch.
+- **Typed Throws, `Codable` & Protocol Extensions**: Avoid overriding protocol extension methods that are not declared in the protocol requirement list (causing surprising static-dispatch behavior when called through existential/generic types); ensure custom `Codable` `CodingKeys` and `init(from:)` preserve forward/backward payload compatibility.
+
+#### Modern Swift Testing (`@Test`, `#expect`, `#require`) & XCTest Hygiene
+When reviewing `*Tests.swift` suites using **Swift Testing** (`import Testing`) or **XCTest**:
+- **Swift Testing Macros (`@Test`, `#expect`, `#require`)**: Use `try #require(...)` to unwrap preconditions before dependent assertions (avoiding force-unwrap `try!` / `!` crashes that abort the test runner or obscure failure diagnostics) and `#expect(...)` for boolean/equality/error checks (`#expect(throws: MyError.self) { ... }`).
+- **Actor & `@MainActor` Test Isolation**: Annotate UI/ViewModel tests with `@MainActor` rather than sprinkling unstructured `Task { @MainActor in ... }` blocks that finish after the test returns; use `confirmation(...)` (Swift Testing) or `await fulfillment(of:)` (XCTest) instead of `Task.sleep` polling.

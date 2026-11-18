@@ -229,6 +229,37 @@ class TestOcrLanguageRules(unittest.TestCase):
         )
         self.assertNotIn("<language_review_rules>", prompt_design)
 
+    def test_req_057_kotlin_android_and_swift_conventions(self):
+        """AC-057-1 & AC-057-2: Kotlin (Android/Coroutines/Compose) & Swift (API Design/Swift Testing) packs."""
+        kotlin_text = (self.rule_docs_dir / "kotlin.md").read_text(encoding="utf-8")
+        for required_marker in (
+            "Android Kotlin Style",
+            "CancellationException",
+            "repeatOnLifecycle",
+            "collectAsStateWithLifecycle",
+            "Jetpack Compose",
+            "FLAG_IMMUTABLE",
+            "runTest",
+        ):
+            self.assertIn(required_marker, kotlin_text, f"Missing '{required_marker}' in kotlin.md")
+        self.assertNotIn("catch (e: Exception) { /* handle exception */ }", kotlin_text)
+
+        swift_text = (self.rule_docs_dir / "swift.md").read_text(encoding="utf-8")
+        for required_marker in (
+            "Swift Review Principles",
+            "Swift API Design Guidelines",
+            "Google Swift Style",
+            "Swift Testing",
+            "#expect",
+        ):
+            self.assertIn(required_marker, swift_text, f"Missing '{required_marker}' in swift.md")
+
+        # AC-057-2: build.gradle.kts resolves to build_gradle.md while .kt resolves to kotlin.md
+        resolved = resolve_rules_for_paths(
+            ["app/build.gradle.kts", "app/src/main/kotlin/MainViewModel.kt", "ios/App.swift"]
+        )
+        self.assertEqual([name for name, _ in resolved], ["build_gradle.md", "kotlin.md", "swift.md"])
+
 
 if __name__ == "__main__":
     unittest.main()

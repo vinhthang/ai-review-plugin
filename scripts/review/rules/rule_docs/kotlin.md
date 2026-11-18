@@ -1,134 +1,47 @@
-### 1. Null Safety
-- **Issue**: Nullable types not handled correctly, leading to potential `NullPointerException`.
-- **Key checks**:
-  - Avoid overusing `!!` (non-null assertion); prefer safe calls `?.` or the Elvis operator `?:`.
-  - Ensure nullable properties from data classes or API responses are handled properly.
-- **Bad example**:
-  ```kotlin
-  val length: Int = text!!.length // Risk: text may be null
-  ```
-- **Improvement**:
-  ```kotlin
-  val length: Int = text?.length ?: 0 // Safe handling
-  ```
+#### Kotlin & Android Review Principles
+> Favor precision over recall: report only real correctness, concurrency, lifecycle, memory-leak, security, or test-isolation defects introduced in changed code. Respect repository-local `detekt.yml`, `.editorconfig` (`ktlint_*`), and `lint.xml` configurations first when present; treat correctness/lifecycle/security violations as P0/P1 blocking and pure idiomatic polish as P2 advisory.
 
-#### Dead Code
-- Code blocks that can never be reached (e.g., branches where the condition is always false, code after a return statement)
-- Variables that are declared but never read or referenced
-- Large blocks of commented-out code (with no apparent intent to preserve)
+Before flagging non-local threading, lifecycle, or nullability issues, inspect surrounding callers, coroutine scopes, and Java/JNI boundaries via `file_read` or `code_search`. Do not duplicate `ktlint` or `detekt` formatting warnings unless they affect runtime behavior.
 
-### 2. Function and Expression Conciseness
-- **Issue**: Redundant code undermines Kotlin's conciseness.
-- **Key checks**:
-  - Use `=` to simplify single-expression functions (e.g., `fun sum(a: Int, b: Int) = a + b`).
-  - Replace complex `if-else` chains with `when`.
-  - Avoid unnecessary `return` (e.g., use expression results directly in lambdas).
-- **Bad example**:
-  ```kotlin
-  fun getGrade(score: Int): String {
-      if (score >= 90) return "A"
-      else if (score >= 80) return "B"
-      else return "C"
-  }
-  ```
-- **Improvement**:
-  ```kotlin
-  fun getGrade(score: Int) = when {
-      score >= 90 -> "A"
-      score >= 80 -> "B"
-      else -> "C"
-  }
-  ```
+#### Null Safety, Platform Types & Type Contracts
+- **Non-null assertion (`!!`) on reachable nullable inputs**: Flag `!!` on network DTOs, `Intent` extras, `Bundle` arguments, database cursors, or user input where `null` is reachable at runtime; prefer safe calls (`?.`), Elvis (`?:`), `requireNotNull(...)` with clear invariant messages, or early return.
+- **Unchecked Java platform types (`T!`)**: Values returned from unannotated Java/Android SDK APIs (`Intent.getStringExtra`, `SharedPreferences.getString`, `Uri.parse`, Jackson/Gson reflection) can be `null` without compiler warnings; assign an explicit nullable type (`String?`) at the boundary.
+- **`lateinit var` before initialization or after teardown**: Accessing `lateinit` properties (such as Fragment bindings or injected collaborators) before lifecycle initialization or after `onDestroyView()` throws `UninitializedPropertyAccessException`.
+- **Mutable collections exposed from `data class` or `ViewModel` state**: Exposing `MutableList`/`MutableMap` or `Array` inside `data class` breaks `equals`/`hashCode` stability and unidirectional data flow (`StateFlow<UiState>`).
 
-### 3. Collection Operation Optimization
-- **Issue**: Inefficient collection operations causing performance problems.
-- **Key checks**:
-  - Prefer `Sequence` for large collections (lazy evaluation reduces intermediate objects).
-  - Avoid redundant operations (e.g., merge multiple `filter` calls into one).
-  - Use `groupBy`, `associate`, etc. instead of manual iteration.
-- **Bad example**:
-  ```kotlin
-  val evenSquares = listOf(1, 2, 3).map { it * it }.filter { it % 2 == 0 } // creates intermediate collections
-  ```
-- **Improvement**:
-  ```kotlin
-  val evenSquares = listOf(1, 2, 3).asSequence()
-      .map { it * it }
-      .filter { it % 2 == 0 }
-      .toList() // lazy evaluation
-  ```
+#### Coroutines, Structured Concurrency & `CancellationException`
+- **Swallowing `CancellationException` (`P1` Blocking)**: Broad `try { ... } catch (e: Exception)` or `runCatching { ... }` around `suspend` calls (`withContext`, `delay`, Retrofit/Room suspend functions, `Flow.collect`) catches `CancellationException` and breaks structured cancellation. Always rethrow `if (e is CancellationException) throw e` (or `currentCoroutineContext().ensureActive()`). Never recommend bare `catch (e: Exception)` around suspend work.
+- **Unstructured / leaking scopes**: Launching work on `GlobalScope` or constructing an unmanaged `CoroutineScope(Dispatchers.IO)` without cancelling it on teardown leaks coroutines and resources; bind to `viewModelScope`, `lifecycleScope`, or an injected lifecycle-managed scope.
+- **Main-thread blocking I/O & `runBlocking`**: Calling `runBlocking` on `Dispatchers.Main` (risking ANRs/deadlocks) or performing disk, database, or synchronous network I/O without switching to `Dispatchers.IO`.
+- **Exception propagation traps**: Passing `Job()` instead of `SupervisorJob()` to a top-level scope causes a single child failure to permanently cancel sibling launches; unhandled exceptions in `async` inside `coroutineScope` still fail the parent even if `.await()` is wrapped in `try/catch` unless scoped with `supervisorScope`.
+- **Locks held across suspension points**: Holding `synchronized(...)` or `ReentrantLock` across `suspend` calls pins carrier threads and risks deadlocks; use `kotlinx.coroutines.sync.Mutex.withLock`.
 
----
+#### Android Lifecycle, `Flow` Collection & Memory Leaks
+- **Unsafe `Flow` collection in UI (`P1` Blocking)**: Collecting `Flow`/`StateFlow` directly inside `lifecycleScope.launch { flow.collect { ... } }` or `launchWhenStarted` keeps upstream producers (location, sensors, database observers) active while the app is in the background and risks crashes on stopped views. Use `viewLifecycleOwner.lifecycleScope.launch { viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { ... } }` in Views/Fragments (note `viewLifecycleOwner`, never Activity/Fragment `this` in Fragments!) or `collectAsStateWithLifecycle()` in Jetpack Compose.
+- **Context, View & Activity leaks**: Holding `Activity`, `Fragment`, `View`, `Drawable`, or Activity-scoped `Context` references inside a `ViewModel`, `companion object`, singleton, or long-lived callback leaks the entire view hierarchy across configuration changes; inject `Application` context only when strictly required.
+- **Fragment view-binding retention**: Retaining a Fragment's `ViewBinding` reference past `onDestroyView()` leaks the detached view tree while the Fragment sits on the back stack.
+- **Hot stream sharing (`stateIn` / `shareIn`)**: Using `SharingStarted.Eagerly` or `Lazily` for UI-bound `ViewModel` flows keeps upstream work alive indefinitely when no UI is visible; prefer `SharingStarted.WhileSubscribed(5_000)` unless background retention is intentional.
+- **Process death & state restoration**: Storing critical user-navigation/form IDs solely in in-memory `ViewModel` fields without `SavedStateHandle` loses state on Android background process recreation.
 
-### 4. Proper Use of Coroutines
-- **Issue**: Coroutine leaks or improper exception handling.
-- **Key checks**:
-  - Use structured concurrency (`coroutineScope` or `supervisorScope` to manage lifecycle).
-  - Avoid `GlobalScope` (prone to resource leaks).
-  - Exception handling: wrap `withContext` or `async` in `try/catch`.
-- **Bad example**:
-  ```kotlin
-  GlobalScope.launch { // escapes scope, may leak
-      fetchData()
-  }
-  ```
-- **Improvement**:
-  ```kotlin
-  viewModelScope.launch { // structured concurrency
-      try {
-          withContext(Dispatchers.IO) { fetchData() }
-      } catch (e: Exception) { /* handle exception */ }
-  }
-  ```
+#### Jetpack Compose State, Stability & Side Effects
+- **Side effects inside `@Composable` body (`P1` Blocking)**: Launching coroutines, mutating state, registering listeners, or triggering navigation/analytics directly during composition runs repeatedly on every recomposition. Use `LaunchedEffect(key)` (keyed properly so stale parameters restart), `DisposableEffect(key)` (with `onDispose` cleanup), or `SideEffect`.
+- **Unstable parameters & broken skippability**: Passing unstable mutable types (`MutableList`, plain `List` without strong skipping / `@Immutable` / `kotlinx.collections.immutable.ImmutableList`, or non-Compose-stable domain classes) to frequently recomposing subtrees causes unnecessary full recompositions.
+- **Unremembered state & `derivedStateOf`**: Calling `mutableStateOf(...)` inside a `@Composable` without `remember` resets state on every recomposition; reading rapidly changing scroll/animation state directly instead of wrapping threshold calculations in `remember { derivedStateOf { ... } }` triggers frame drops.
+- **Missing or unstable `LazyColumn`/`LazyRow` keys**: Omitting `key = { item.id }` on dynamic lists causes broken item animations, lost scroll/input state on insertion/deletion, and unnecessary slot recreation.
 
-### 5. Class and Object Design
-- **Issue**: Not leveraging Kotlin features leads to redundancy.
-- **Key checks**:
-  - **Data classes**: Use `data class` for pure data objects (auto-generates `equals`/`hashCode`).
-  - **Sealed classes/interfaces**: Use `sealed class` for restricted type hierarchies (enables exhaustive `when` branch checking).
-  - **Delegation**: Property delegation (e.g., `by lazy`) or class delegation (`by` for the decorator pattern).
-- **Bad example**:
-  ```kotlin
-  class User(val name: String) {
-      // manually implementing toString()/equals()...
-  }
-  ```
-- **Improvement**:
-  ```kotlin
-  data class User(val name: String) // standard methods auto-generated
-  ```
+#### Android Security, Persistence & IPC
+- **`PendingIntent` mutability (`P0`/`P1`)**: Creating `PendingIntent`s without explicit `PendingIntent.FLAG_IMMUTABLE` (or `FLAG_MUTABLE` only with an explicit package/component target when required for inline replies/bubbles) allows intent hijacking on Android 12+ or crashes at runtime.
+- **Exported components & WebView hazards**: Activities, Services, BroadcastReceivers, or ContentProviders exported without permission/caller checks; `WebView` enabling `javaScriptEnabled = true` alongside `addJavascriptInterface` or universal file access on untrusted URLs; sensitive tokens stored in plaintext `SharedPreferences`/DataStore or logged via `Log.d`.
+- **Room / SQLite transaction & migration safety**: Multi-step database read-modify-write sequences missing `@Transaction` / `db.withTransaction`; Room schema changes missing migration paths without intentional destructive fallback.
 
-### 6. Resource Management and Scope Functions
-- **Issue**: Resources not released or scope functions misused.
-- **Key checks**:
-  - Use `use` to auto-close file/network resources (e.g., `FileInputStream().use { ... }`).
-  - Scope functions (`let`, `apply`, etc.) should maintain readability; avoid excessive nesting.
-- **Bad example**:
-  ```kotlin
-  val file = File("path")
-  val reader = BufferedReader(FileReader(file))
-  // forgot to call reader.close()
-  ```
-- **Improvement**:
-  ```kotlin
-  File("path").inputStream().use { stream ->
-      // resource auto-closed
-  }
-  ```
+#### Official Kotlin & Android Kotlin Style Conventions
+- **Official Kotlin Coding Conventions & Android Kotlin Style Guide**:
+  - Prefer `val` over `var`, immutable collection interfaces (`List`, `Set`, `Map`) at API boundaries, expression `when` over cascading `if-else`, and `sealed interface` / `sealed class` hierarchies for exhaustive UI/domain results (`UiState`, `Result`) without catch-all `else` branches that hide newly added subtypes.
+  - Close `Closeable` / `AutoCloseable` I/O streams, `Cursor`s, and `TypedArray`s via `.use { ... }`.
+  - Keep scope functions (`let`, `run`, `apply`, `also`, `with`) shallow—avoid nested `it` shadowing across chained scope functions.
+  - Inject `CoroutineDispatcher`s (`@IoDispatcher`, `@MainDispatcher`) rather than hardcoding `Dispatchers.IO` / `Dispatchers.Default` inside repositories and use cases.
 
-### 7. Performance Pitfalls
-- **Issue**: Hidden performance overhead.
-- **Key checks**:
-  - Inline functions: Use `inline` for higher-order functions to reduce lambda overhead (but avoid inlining large functions).
-  - Constants: Use `const val` for compile-time constants (instead of `val`).
-  - Avoid creating objects inside loops (e.g., `Regex` instances).
-
-### 8. Interoperability (Java Interaction)
-- **Issue**: Compatibility problems when Java code calls Kotlin code.
-- **Key checks**:
-  - Use `@JvmStatic` and `@JvmOverloads` to optimize APIs exposed to Java callers.
-  - Null safety annotations: Use `@Nullable`/`@NonNull` to help Java recognize nullability.
-
-### 9. Other Key Points
-- **Immutability**: Prefer `val` over `var`.
-- **String handling**: Use string templates (`"Value: $value"`) instead of concatenation.
+#### Kotlin & Android Testing Correctness (`*Test.kt`)
+- **Coroutines testing (`kotlinx-coroutines-test`)**: Use `runTest` with injected `TestDispatcher` (`StandardTestDispatcher` / `UnconfinedTestDispatcher`) and `MainDispatcherRule` (`Dispatchers.setMain` / `Dispatchers.resetMain` in teardown) rather than `Thread.sleep` or `runBlocking` with real wall-clock delays.
+- **`Flow` & `StateFlow` assertions**: Verify emission sequences deterministically (e.g., Turbine `.test { awaitItem(); cancelAndIgnoreRemainingEvents() }` or background `backgroundScope.launch(UnconfinedTestDispatcher(testScheduler))`) so uncollected hot flows never hang `runTest`.
+- **Anti-vacuity & MockK hygiene**: Never mock the class under test or assert solely on `verify` calls without asserting observable state/output; clear static/object mocks (`unmockkAll()` / `unmockkObject(...)`) in `@AfterEach` / `@After` so test pollution cannot leak across suites.
