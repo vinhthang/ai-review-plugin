@@ -1,3 +1,5 @@
 {
-  "name": "ai-review-plugin"
+  "name": "ai-review-plugin",
+  "version": "1.2.0",
+  "description": "Architectural spec/design peer reviews and fast single-agent code-review with local linters and industry coding conventions."
 }

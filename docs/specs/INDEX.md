@@ -1,0 +1,18 @@
+# Feature Registry & Requirement Index
+
+This catalog indexes all feature specifications, requirement ID ranges, and architectural decision records.
+
+| Feature ID | Title | Status | REQ Range | Key Decisions | Spec Path |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `2026-09-13-workbuddy-review-engine` | WorkBuddy Review Engine Integration | Completed | `REQ-001`–`REQ-005` | WorkBuddy headless bundle, CLI adapters | [`2026-09-13-workbuddy-review-engine-specification.md`](./2026-09-13-workbuddy-review-engine-specification.md) |
+| `2026-09-15-5file-architecture` | 5-File Architecture & Precedence | Completed | `REQ-006`–`REQ-010` | 5 distinct lifecycles, Precedence Order | [`2026-09-15-writing-specs-for-ai-agent.md`](./2026-09-15-writing-specs-for-ai-agent.md) |
+| `2026-09-16-versioned-reviews` | Feature-Scoped Docs & Versioned Reviews | Completed | `REQ-011`–`REQ-020` | Stateless `--prior-review`, `INDEX.md`, package layout | [`2026-09-16-versioned-reviews/spec.md`](./2026-09-16-versioned-reviews/spec.md) |
+| `2026-09-16-modular-review-flows` | Modular Review Architecture Refactor | Completed | `REQ-021`–`REQ-025` | Numbered State Transitions (Audit, Remediation, Governance), Stateless Rebuttals | [`2026-09-16-modular-review-flows/spec.md`](./2026-09-16-modular-review-flows/spec.md) |
+| `2026-10-06-code-review-rebuttal-and-docs-guardrails` | Code-Review Rebuttal Protocol & Docs Guardrails | Completed | `REQ-026`–`REQ-030` | Docs guardrail in audit prompt, stateless rebuttal for code-review, modular lifecycle alignment | `docs/specs/2026-10-06-code-review-rebuttal-and-docs-guardrails/spec.md` (not in repo) |
+| `2026-10-09-spec-gate-enforcement` | Mechanical Spec-Gate & Traceability Enforcement | Completed | `REQ-031`–`REQ-035` | Inter-plugin hook gate, AST traceability in CI | [`docs/specs/2026-10-09-spec-gate-enforcement/spec.md`](./2026-10-09-spec-gate-enforcement/spec.md) |
+| `2026-10-14-argon-web-reviewer` | Argon Web Reviewer & Pluggable Engine Architecture | Completed | `REQ-036`–`REQ-040` | Pluggable Engine Registry, Edge AppleScript runner, Hybrid JSON/Markdown parser | [`docs/specs/2026-10-14-argon-web-reviewer/spec.md`](./2026-10-14-argon-web-reviewer/spec.md) |
+| `2026-10-19-simplification-and-deduplication` | Codebase Simplification, Deduplication & Sub-500-Line Modularization | Completed | `REQ-041`–`REQ-044` | Single-source spec-standard rule, sub-500-line split (`prompts.py`, `cdp_client.py`), shared issue normalization | [`docs/specs/2026-10-19-simplification-and-deduplication/spec.md`](./2026-10-19-simplification-and-deduplication/spec.md) |
+| `2026-10-20-harness2-sandbox-and-inv-dom-review` | Harness² Blind Evaluator Sandbox Tripwire, INV/DOM Review & Surface Governance | Completed | `REQ-045`–`REQ-047` | `ADR-001`–`ADR-003` | [`docs/specs/2026-10-20-harness2-sandbox-and-inv-dom-review/spec.md`](./2026-10-20-harness2-sandbox-and-inv-dom-review/spec.md) |
+| `2026-10-30-ocr-language-rules-integration` | Alibaba Open-Code-Review Language Rule Corpus & Glob Matcher Integration | Approved | `REQ-048`–`REQ-050` | `ADR-010`–`ADR-011` | [`docs/specs/2026-10-30-ocr-language-rules-integration/spec.md`](./2026-10-30-ocr-language-rules-integration/spec.md) |
+| 2026-11-18-single-agent-code-review | Single-agent code-review skill, local scoped linters, and industry coding conventions | In-Testing | REQ-051..REQ-054 | ADR-042..ADR-043 | [spec.md](./2026-11-18-single-agent-code-review/spec.md) |
+| 2026-11-18-mobile-kotlin-swift-code-review | Swift and Kotlin (Android) single-agent code-review linters, configs, and conventions | In-Testing | REQ-055..REQ-057 | None | [spec.md](./2026-11-18-mobile-kotlin-swift-code-review/spec.md) |

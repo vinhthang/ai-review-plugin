@@ -7,6 +7,8 @@ __pycache__/
 codex_events.jsonl
 codex_stderr.log
 review.json
+!docs/specs/**/reviews/*.json
+diagnostic_review.json
 # Plan-Review working files (transient, not committed)
 implementation_plan.md
 consensus_summary.md
