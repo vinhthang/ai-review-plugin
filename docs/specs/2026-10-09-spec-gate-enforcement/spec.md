@@ -2,8 +2,8 @@
 
 **Feature ID:** `2026-10-09-spec-gate-enforcement`  
 **Requirement Range:** `REQ-031` to `REQ-035`  
-**Status:** Approved by Human Gate  
-**Governing Standard:** [`rules/spec-standard.md`](file:///Users/thanghoang/github/ai-review-plugin/rules/spec-standard.md)  
+**Status:** Superseded (runtime `spec-gate.py` hook retired by `spec-driven-plugin` `v3.0`)
+**Governing Standard:** `rules/spec-standard.md` (later consolidated into `spec-driven-plugin` via `REQ-041`)
 **Cross-Plugin Scope:** `ai-review-plugin` & `antigravity-attention-guard-plugin`  
 
 ---

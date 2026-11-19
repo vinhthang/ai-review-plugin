@@ -2,8 +2,8 @@
 
 **Feature ID:** `2026-09-16-modular-review-flows`  
 **Requirement Range:** `REQ-021` to `REQ-025`  
-**Status:** Approved by Human Gate  
-**Governing Standard:** [`rules/spec-standard.md`](file:///Users/thanghoang/github/ai-review-plugin/rules/spec-standard.md)
+**Status:** Completed
+**Governing Standard:** `rules/spec-standard.md` (later consolidated into `spec-driven-plugin` via `REQ-041`)
 
 ---
 

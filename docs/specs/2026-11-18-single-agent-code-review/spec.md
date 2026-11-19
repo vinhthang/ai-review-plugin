@@ -4,7 +4,7 @@
 - Type: enhancement
 - Status: In-Testing
 - First entered In-Testing: 2026-11-18
-- Related specifications: Proposed: Changes [2026-10-20-harness2-sandbox-and-inv-dom-review](../2026-10-20-harness2-sandbox-and-inv-dom-review/spec.md), [2026-10-30-ocr-language-rules-integration](../2026-10-30-ocr-language-rules-integration/spec.md)
+- Related specifications: Implemented: Changes [2026-10-20-harness2-sandbox-and-inv-dom-review](../2026-10-20-harness2-sandbox-and-inv-dom-review/spec.md), [2026-10-30-ocr-language-rules-integration](../2026-10-30-ocr-language-rules-integration/spec.md)
 
 ## Problem and source intent
 

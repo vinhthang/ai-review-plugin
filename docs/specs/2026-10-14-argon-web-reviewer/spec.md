@@ -2,8 +2,8 @@
 
 **Feature ID:** `2026-10-14-argon-web-reviewer`  
 **Requirement Range:** `REQ-036` to `REQ-040`  
-**Status:** In Review (Disambiguated via `/grill-me`)  
-**Governing Standard:** [`rules/spec-standard.md`](file:///Users/thanghoang/github/ai-review-plugin/rules/spec-standard.md)  
+**Status:** Completed
+**Governing Standard:** `rules/spec-standard.md` (later consolidated into `spec-driven-plugin` via `REQ-041`)
 **Workspace:** `ai-review-plugin`  
 
 ---

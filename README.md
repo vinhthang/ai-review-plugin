@@ -63,6 +63,12 @@ Fast, single-agent peer review on uncommitted, staged, or branch code changes—
   3. Injects deduplicated distilled industry standards (`scripts/review/rules/rule_docs/*.md`, covering Google Java + *Effective Java* 3e + Spring Boot test rules, Google/Uber Go + `*_test.go` checks, PEP 8 / Google Python, Google TS, and Rust API Guidelines).
 - **Zero Repo Pollution**: Reports `P0`/`P1`/`P2` findings directly in chat (or Brain Artifacts when extensive) without writing `review.md`, `review.json`, or `docs/adr/` into the repository.
 
+### 4. Standalone Single-File Gemini Web Skills (`c4-*`)
+For Gemini Web / Gems (share the repo or raw URLs directly with Gemini Web, or paste into a Gem's Instructions box omitting the 4-line YAML frontmatter):
+- **[`c4-spec-review.md`](c4-spec-review.md)** ([raw](https://raw.githubusercontent.com/vinhthang/ai-review-plugin/main/c4-spec-review.md)): Self-contained normative specification reviewer (`spec.md`, `decisions.md`, `INDEX.md`, Gate 1, EARS dual ACs, and `First entered In-Testing` delta lineage).
+- **[`c4-design-review.md`](c4-design-review.md)** ([raw](https://raw.githubusercontent.com/vinhthang/ai-review-plugin/main/c4-design-review.md)): Self-contained derived plan reviewer (`design.md`, `tasks.md`, `verification.md`, Gate 2 bidirectional traceability, parallel `- Files:` disjointness, and TDD anti-vacuity).
+- **[`c4-spec-driven.md`](https://github.com/vinhthang/spec-driven-plugin/blob/main/c4-spec-driven.md)** ([raw](https://raw.githubusercontent.com/vinhthang/spec-driven-plugin/main/c4-spec-driven.md)): Companion five-document specification authoring & lifecycle skill (`spec-driven-plugin`).
+
 ---
 
 ## Modular Review Engine (`scripts/peer_review.py`)

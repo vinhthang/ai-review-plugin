@@ -1,13 +1,13 @@
 # Specification: Codebase Simplification, Deduplication & Sub-500-Line Modularization
 
 - **Feature ID**: `2026-10-19-simplification-and-deduplication`
-- **Status**: `Planning`
+- **Status**: `Completed`
 - **Version**: `1.0.0`
 - **Date**: `2026-10-19`
 
 ## 1. Problem Statement & Context
 
-Following the self-review in [`SELF_REVIEW.md`](../../../SELF_REVIEW.md), four maintainability and structural issues remain in `ai-review-plugin`:
+Following the self-review in `SELF_REVIEW.md`, four maintainability and structural issues remain in `ai-review-plugin`:
 1. `rules/spec-standard.md` in `ai-review-plugin` duplicates `spec-driven-plugin/rules/spec-standard.md`, causing both rules to load simultaneously into the agent context and drift apart.
 2. `scripts/review/audit.py` (509 lines; `_main()` is 412 lines) and `scripts/review/runners/edge_applescript_runner.py` (536 lines) exceed the 500-line AST gate threshold (`ast-gate.py`).
 3. `scripts/review/governance.py` (`update_index_catalog()`) splits Markdown table rows using naive `row.split("|")[1:-1]`, which corrupts cells containing escaped pipes (`\|`).
