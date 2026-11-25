@@ -442,11 +442,12 @@ def test_ac_053_and_ac_054_skill_and_rule_contracts() -> None:
         if "docs/adr/" in line or "review.md" in line:
             assert "do not write" in line.lower()
 
-    agents_text = (PLUGIN_ROOT / "rules" / "AGENTS.md").read_text(encoding="utf-8")
-    assert "spec-review" in agents_text
-    assert "design-review" in agents_text
-    assert "code-review" in agents_text
-    assert len(agents_text) <= 8000
+    rules_text = (PLUGIN_ROOT / "rules" / "ai-review.md").read_text(encoding="utf-8")
+    assert "trigger: model_decision" in rules_text
+    assert "spec-review" in rules_text
+    assert "design-review" in rules_text
+    assert "code-review" in rules_text
+    assert len(rules_text) <= 2500
 
     for script_path in (LINT_RUNNER_DIR / "lint_runner.py", PREPARE_SCRIPT):
         tree = ast.parse(script_path.read_text(encoding="utf-8"))

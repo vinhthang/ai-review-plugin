@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: "Apply whenever running code-review on diffs/PRs, spec-review on docs/specs/, or design-review on architectural plans (prepare_code_review.py, peer_review.py)."
+---
+
 # AI Review Governance & Invariants
 
 <rule name="ai-review-governance">

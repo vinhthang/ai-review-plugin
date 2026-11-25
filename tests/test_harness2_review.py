@@ -221,14 +221,16 @@ class TestReviewDimensions:
 # ============================================================================
 
 class TestSurfaceValidationCompliance:
-    def test_rules_agents_content_and_budget(self):
-        rules_path = os.path.join(PLUGIN_ROOT, "rules", "AGENTS.md")
-        assert os.path.isfile(rules_path), "rules/AGENTS.md must exist in ai-review-plugin"
+    def test_rules_ai_review_content_and_budget(self):
+        rules_path = os.path.join(PLUGIN_ROOT, "rules", "ai-review.md")
+        assert os.path.isfile(rules_path), "rules/ai-review.md must exist in ai-review-plugin"
+        assert not os.path.exists(os.path.join(PLUGIN_ROOT, "rules", "AGENTS.md"))
 
         with open(rules_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        assert len(content) < 2500, f"rules/AGENTS.md must be < 2500 chars, got {len(content)}"
+        assert len(content) < 2500, f"rules/ai-review.md must be < 2500 chars, got {len(content)}"
+        assert "trigger: model_decision" in content
         assert '<rule name="ai-review-governance">' in content
         assert "spec-review" in content
         assert "design-review" in content
@@ -255,6 +257,7 @@ class TestSurfaceValidationCompliance:
         valid, errors, meta = validate_plugin_surface(PLUGIN_ROOT)
         assert valid is True, f"surface_validator failed with errors: {errors}"
         assert errors == []
+        assert meta["always_on_chars"] == 0
         assert meta["always_on_chars"] <= meta["always_on_max"]
         assert "code-review" in meta["skills"]
         assert "design-review" in meta["skills"]
