@@ -39,6 +39,7 @@ stateDiagram-v2
    ```bash
    rtk python3 <plugin-dir>/scripts/peer_review.py --target <resolved_spec> --mode spec --repo <repo_root> --output-file review.json [--prior-review <path>]
    ```
+   *(Run `run_command` with `WaitMsBeforeAsync: 10000, NotificationTimeoutSeconds: 180` and end the turn if backgrounded—never poll with timers.)*
 3. **Evaluate Verdict:**
    - **`1. Clean`** (No P0/P1 issues): Transition directly to **Governance**.
    - **`2. Defects Found`** (P0 or P1 issues present): Transition to **Remediation**.

@@ -19,6 +19,7 @@ Enforces rigorous architectural peer reviews for specifications and designs alon
 - **Orthogonal Review Dimensions & Blocker Discipline**:
   - Reviews can isolate structural invariants (`inv`) from domain completeness (`dom`) via `--dimension`.
   - `P0`/`P1` issues block sign-off and require code/spec remediation or evidence-backed rebuttal; `P2` findings are advisory.
+- **Review Mode Routing (`/boost` vs `peer_review.py` vs `/gemini-web-oracle`)**: Recommend native `/boost` for in-harness codebase-grounded multi-perspective reasoning, `spec-review`/`design-review` (`peer_review.py`) for isolated cross-engine audits, and `/gemini-web-oracle` for zero-tool Gemini Web / Google-Search grounding.
 </constraints>
 
 <instructions>
