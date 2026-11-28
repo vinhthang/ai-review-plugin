@@ -392,9 +392,21 @@ def test_ac_052_1_and_ac_052_2_conventions_and_scoped_linters(tmp_path: Path) ->
     assert any("mvn" in item for item in deep_res["executed"])
     assert any("cargo" in item for item in deep_res["executed"])
 
-    # Go linter branch coverage: golangci-lint present vs staticcheck fallback
+    # Go linter branch coverage: golangci-lint v2 (--fast-only, rejects removed v1 --fast) vs staticcheck fallback
     bin_go1 = tmp_path / "bin_go1"
-    _make_stub(bin_go1, "golangci-lint", 'echo "worker.go:2:1: sample golangci issue"\nexit 1')
+    _make_stub(
+        bin_go1,
+        "golangci-lint",
+        'for a in "$@"; do\n'
+        '  if [ "$a" = "--fast" ]; then\n'
+        '    echo "Error: unknown flag: --fast" >&2\n'
+        '    exit 3\n'
+        '  fi\n'
+        'done\n'
+        'case " $* " in *" --fast-only "*) ;; *) echo "missing --fast-only" >&2; exit 2;; esac\n'
+        'echo "worker.go:2:1: sample golangci issue"\n'
+        'exit 1',
+    )
     go1_res = run_scoped_linters(
         repo,
         ["worker.go"],

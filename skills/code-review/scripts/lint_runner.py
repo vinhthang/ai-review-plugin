@@ -368,7 +368,7 @@ def run_scoped_linters(
                     )
         tool_jobs.append(("go-vet", ["go", "vet", *go_pkgs], timeout_sec))
         if shutil.which("golangci-lint", path=run_env.get("PATH", "")) is not None:
-            tool_jobs.append(("golangci-lint", ["golangci-lint", "run", "--fast", *go_pkgs], timeout_sec))
+            tool_jobs.append(("golangci-lint", ["golangci-lint", "run", "--fast-only", *go_pkgs], timeout_sec))
         else:
             skipped.append("golangci-lint (not installed)")
             if shutil.which("staticcheck", path=run_env.get("PATH", "")) is not None:
